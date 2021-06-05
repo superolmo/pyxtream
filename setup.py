@@ -12,14 +12,17 @@ setup(
      description="xtream IPTV loader",
      long_description=long_description,
      long_description_content_type="text/markdown",
-     url="https://github.com/superolmo2/pyxtream",
+     url="https://github.com/superolmo/pyxtream",
      packages=find_packages(),
      license="GPL3",
      classifiers=[
+         "Development Status :: 4 - Beta",
+         "Environment :: Console",
          "Intended Audience :: Developers",
-         "Programming Language :: Python :: 3",
-         "License :: OSI Approved :: GPL3 License",
+         "Programming Language :: Python :: 3 :: Only",
+         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
          "Operating System :: OS Independent",
+         "Natural Language :: English"
      ],
  )
 
