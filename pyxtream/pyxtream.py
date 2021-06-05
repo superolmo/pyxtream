@@ -6,6 +6,7 @@ It does not support M3U
 
 Part of this content comes from 
 https://github.com/chazlarson/py-xtream-codes/blob/master/xtream.py
+https://github.com/linuxmint/hypnotix
 
 Author: Claudio Olmi
 Github: superolmo
@@ -17,35 +18,16 @@ __author__ = 'Claudio Olmi'
 
 import requests 
 import time
-import os.path as osp
+from os import path as osp
+from os import makedirs
+
+# Timing xtream json downloads
 from timeit import default_timer as timer, timeit
 
 import json
 
 # used for URL validation
 import re
-
-PROVIDER_NAME=""
-PROVIDERS_PATH = osp.expanduser("~/.hypnotix/providers")
-TV_GROUP, MOVIES_GROUP, SERIES_GROUP = range(3)
-
-def slugify(string):
-    """
-    Normalizes string, converts to lowercase, removes non-alpha characters,
-    and converts spaces to hyphens.
-    """
-    return "".join(x.lower() for x in string if x.isalnum())
-
-def validateURL(url: str) -> bool:
-    regex = re.compile(
-        r'^(?:http|ftp)s?://' # http:// or https://
-        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|' #domain...
-        r'localhost|' #localhost...
-        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})' # ...or ip
-        r'(?::\d+)?' # optional port
-        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
-
-    return re.match(regex, url) is not None
 
 class Channel():
     stream_type = ""
@@ -67,7 +49,7 @@ class Channel():
     added = ""
     epg_channel_id = ""
 
-    def __init__(self, group_title, stream_info, authorization):
+    def __init__(self, xtream: object, group_title, stream_info):
         stream_type = stream_info['stream_type']
         # Adjust the odd "created_live" type
         if stream_type == "created_live":
@@ -78,13 +60,14 @@ class Channel():
                 stream_type,stream_info
             ))
         else:
+            # Raw JSON Channel
+            self.raw = stream_info
 
-            self.info = stream_info
             stream_name = stream_info['name']
             self.id = stream_info['stream_id']
             self.name = stream_name
             self.logo = stream_info['stream_icon']
-            self.logo_path = getLogoLocalPath(self.logo)
+            self.logo_path = xtream.getLogoLocalPath(self.logo)
 
             self.group_id = stream_info['category_id']
 
@@ -103,52 +86,23 @@ class Channel():
 
             self.url = "http://mega.test25.in:80/{}/{}/{}/{}.{}".format(
                 stream_info['stream_type'],
-                authorization['username'],
-                authorization['password'],
+                xtream.authorization['username'],
+                xtream.authorization['password'],
                 stream_info['stream_id'],
                 stream_extension
                 )
             
-            if not validateURL(self.url):
+            # Check that the constructed URL is valid
+            if not xtream.validateURL(self.url):
                 print("{} - Bad URL? `{}`".format(self.name, self.url))
-
-    def show(self):
-        print("Stream\nname: `{}`\nid: `{}`\nlogo: `{}`\nlogo_path: `{}`\ngroup_id: `{}`\ngroup_title: `{}`\nurl: `{}`\nis_adult: `{}`\nadded: `{}`".format(
-            self.name,
-            self.id,
-            self.logo,
-            self.logo_path,
-            self.group_id,
-            self.group_title,
-            self.url,
-            self.is_adult,
-            self.added
-        ))
-
-def getLogoLocalPath(logoURL: str):
-    """Convert the Logo URL to a local Logo Path
-
-    Args:
-        logoURL (str): The Logo URL
-
-    Returns:
-        [type]: The logo path as a string or None
-    """
-    local_logo_path = None
-    if logoURL != None:
-        if not validateURL(logoURL):
-            #print("Bad URL? `{}`".format(logoURL))
-            logoURL = None
-        else:
-            local_logo_path = osp.join(PROVIDERS_PATH, "{}-{}".format(
-                slugify(PROVIDER_NAME), 
-                slugify(osp.split(logoURL)[-1])
-                )
-            )
-    return local_logo_path
 
 class Group():
     def __init__(self, group_info: dict, stream_type: str):
+        # Raw JSON Group
+        self.raw = group_info
+
+        TV_GROUP, MOVIES_GROUP, SERIES_GROUP = range(3)
+
         if "VOD" == stream_type:
             self.group_type = MOVIES_GROUP
         elif "Series" == stream_type:
@@ -164,18 +118,11 @@ class Group():
         self.channels = []
         self.series = []
 
-    def show(self):
-        print("stream_type: `{}`\nname: `{}`\ngroup_id: `{}`\nChannel Length: `{}`\nSeries Length: `{}`".format(
-            self.group_type,
-            self.name,
-            self.group_id,
-            len(self.channels),
-            len(self.series)
-        ))
-
 class Episode():
-    def __init__(self, series_info, group_title, episode_info, authorization) -> None:
-        self.info = episode_info
+    def __init__(self, xtream: object, series_info, group_title, episode_info) -> None:
+        # Raw JSON Episode
+        self.raw = episode_info
+
         self.title = episode_info['title']
         self.name = self.title
         self.group_title = group_title
@@ -185,23 +132,29 @@ class Episode():
         self.av_info = episode_info['info']
 
         self.logo = series_info['cover']
-        self.logo_path = getLogoLocalPath(self.logo)
+        self.logo_path = xtream.getLogoLocalPath(self.logo)
         
 
         self.url = "http://mega.test25.in:80/series/{}/{}/{}.{}".format(
-            authorization['username'],
-            authorization['password'],
+            xtream.authorization['username'],
+            xtream.authorization['password'],
             self.id,
             self.container_extension
             )
 
+        # Check that the constructed URL is valid
+        if not xtream.validateURL(self.url):
+            print("{} - Bad URL? `{}`".format(self.name, self.url))
+
 class Serie():
-    def __init__(self, series_info):
-        self.info = series_info
+    def __init__(self, xtream: object, series_info):
+        # Raw JSON Series
+        self.raw = series_info
+
         self.name = series_info['name']
         self.series_id = series_info['series_id']
         self.logo = series_info['cover']
-        self.logo_path = getLogoLocalPath(self.logo)
+        self.logo_path = xtream.getLogoLocalPath(self.logo)
         
         self.seasons = {}
         self.episodes = {}
@@ -217,22 +170,6 @@ class Season():
 
 class XTream():
 
-
-# Note: The API Does not provide Full links to the requested stream. 
-# You have to build the url to the stream in order to play it.
-# 
-# For Live Streams the main format is
-# http(s)://domain:port/live/username/password/streamID.ext 
-# ( In allowed_output_formats element you have the available ext )
-# 
-# For VOD Streams the format is:
-# http(s)://domain:port/movie/username/password/streamID.ext 
-# ( In target_container element you have the available ext )
-#  
-# For Series Streams the format is
-# http(s)://domain:port/series/username/password/streamID.ext 
-# ( In target_container element you have the available ext )
-
     name = ""
     server = ""
     username = ""
@@ -244,8 +181,11 @@ class XTream():
 
     authData = {}
     authorization = {}
+
     groups = []
     channels = []
+    series = []
+    movies = []
 
     catch_all_group = Group(
         {
@@ -256,15 +196,83 @@ class XTream():
         liveType
     )
 
-    def __init__(self, provider):
-        self.server = provider.url
-        self.username = provider.username
-        self.password = provider.password
-        self.name = provider.name
-        PROVIDER_NAME = provider.name
+    def __init__(self, provider_name: str, provider_username: str, provider_password: str, provider_url: str, cache_path: str = ""):
+        """Initialize Xtream Class
+
+        Args:
+            provider_name (str): Name of the IPTV provider
+            provider_username (str): User name of the IPTV provider
+            provider_password (str): Password of the IPTV provider
+            provider_url (str): URL of the IPTV provider
+            cache_path (str, optional): Location where to save loaded files. Defaults to "".
+        """
+        self.server = provider_url
+        self.username = provider_username
+        self.password = provider_password
+        self.name = provider_name
+
+        # if the cache_path is specified, test that it is a directory
+        if cache_path != "":
+            if osp.isdir(cache_path):
+                self.cache_path = cache_path
+            else:
+                print("Cache Path is not a directory, using default '~/.xtream-cache/'")
+        
+        # If the cache_path is still empty, use default
+        if self.cache_path == "":
+            self.cache_path = osp.expanduser("~/.xtream-cache/")
+            if not osp.isdir(self.cache_path):
+                makedirs(self.cache_path, exist_ok=True)
+
         self.authenticate()
-        if int(self.authData['user_info']['active_cons']) > 0:
-            print(self.authData)
+
+    def slugify(self, string: str) -> str:
+        """Normalize string
+
+        Normalizes string, converts to lowercase, removes non-alpha characters,
+        and converts spaces to hyphens.
+
+        Args:
+            string (str): String to be normalized
+
+        Returns:
+            str: Normalized String
+        """
+        return "".join(x.lower() for x in string if x.isalnum())
+
+    def validateURL(self, url: str) -> bool:
+        regex = re.compile(
+            r'^(?:http|ftp)s?://' # http:// or https://
+            r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|' #domain...
+            r'localhost|' #localhost...
+            r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})' # ...or ip
+            r'(?::\d+)?' # optional port
+            r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+
+        return re.match(regex, url) is not None
+
+    def getLogoLocalPath(self, logoURL: str) -> str:
+        """Convert the Logo URL to a local Logo Path
+
+        Args:
+            logoURL (str): The Logo URL
+
+        Returns:
+            [type]: The logo path as a string or None
+        """
+        local_logo_path = None
+        if logoURL != None:
+            if not self.validateURL(logoURL):
+                #print("Bad URL? `{}`".format(logoURL))
+                logoURL = None
+            else:
+                local_logo_path = osp.join(self.cache_path, "{}-{}".format(
+                    self.slugify(self.name), 
+                    self.slugify(osp.split(logoURL)[-1])
+                    )
+                )
+        return local_logo_path
+
 
     # If you want to limit the displayed output data, 
     # you can use params[offset]=X & params[items_per_page]=X on your call.
@@ -280,8 +288,8 @@ class XTream():
 
     def loadFromFile(self, filename) -> dict:
         #Build the full path
-        full_filename = osp.join(PROVIDERS_PATH, "{}-{}".format(
-                slugify(PROVIDER_NAME), 
+        full_filename = osp.join(self.cache_path, "{}-{}".format(
+                self.slugify(self.name), 
                 filename
         ))
 
@@ -322,8 +330,8 @@ class XTream():
             bool: True if successfull, False if error
         """
         #Build the full path
-        full_filename = osp.join(PROVIDERS_PATH, "{}-{}".format(
-                slugify(PROVIDER_NAME), 
+        full_filename = osp.join(self.cache_path, "{}-{}".format(
+                self.slugify(self.name), 
                 filename
         ))
         # If the path makes sense, save the file
@@ -339,15 +347,21 @@ class XTream():
 
         return True
 
-    def load_iptv(self, provider):
+    def load_iptv(self):
+        """Load XTream IPTV
+
+        """
+
         #loading_stream_type = self.liveType
         for loading_stream_type in (self.liveType, self.vodType, self.seriesType):
+            ## Get GROUPS
+
             # Try loading local file
             dt = 0
             all_cat = self.loadFromFile("all_groups_{}.json".format(
                 loading_stream_type
             ))
-            # If none, download it from remote
+            # If file empty or does not exists, download it from remote
             if all_cat == None:
                 # Load all Groups and save file locally
                 start = timer()
@@ -357,28 +371,37 @@ class XTream():
                 ))
                 dt = timer()-start
 
-            if all_cat == None:
-                return None
-            else:
+            # If we got the GROUPS data, show the statistics and load GROUPS
+            if all_cat != None:
                 print("Loaded {} {} Groups in {:.3f} seconds".format(
                     len(all_cat),loading_stream_type,dt
                 ))
-                # Add the catch-all-errors group for each type
+                ## Add GROUPS to dictionaries
+
+                # Add the catch-all-errors group
+                #  Add to xtream class
                 self.groups.append(self.catch_all_group)
-                provider.groups.append(self.catch_all_group)
+                #  Add to provider
+                #provider.groups.append(self.catch_all_group)
 
                 for cat_obj in all_cat:
                     # Create Group (Category)
                     new_group = Group(cat_obj, loading_stream_type)
+                    #  Add to xtream class
                     self.groups.append(new_group)
-                    provider.groups.append(new_group)
+                    #  Add to provider
+                    #provider.groups.append(new_group)
+            else:
+                print("Could not load {} Groups".format(loading_stream_type))
+
+            ## Get Streams
 
             # Try loading local file
             dt = 0
             all_streams = self.loadFromFile("all_stream_{}.json".format(
                 loading_stream_type
             ))
-            # If none, download it from remote
+            # If file empty or does not exists, download it from remote
             if all_streams == None:
                 # Load all Streams and save file locally
                 start = timer()
@@ -388,12 +411,13 @@ class XTream():
                 ))
                 dt = timer()-start
 
-            if all_streams == None:
-                return None
-            else:
+            # If we got the STREAMS data, show the statistics and load Streams
+            if all_streams != None:
                 print("Loaded {} {} Streams in {:.3f} seconds".format(
                     len(all_streams),loading_stream_type,dt
                 ))
+                ## Add Streams to dictionaries
+
                 for stream_channel in all_streams:
                     # Generate Group Title
                     if stream_channel['name'][0].isalnum():
@@ -406,7 +430,7 @@ class XTream():
                         
                         if loading_stream_type == self.seriesType:
                             # Load all Series
-                            new_series = Serie(stream_channel)
+                            new_series = Serie(self, stream_channel)
                             # To get all the Episodes for every Season of each 
                             # Series is very time consuming, we will only 
                             # populate the Series once the user click on the 
@@ -415,7 +439,9 @@ class XTream():
 
                         else:
                             new_channel = Channel(
-                                group_title, stream_channel,self.authorization
+                                self, 
+                                group_title, 
+                                stream_channel
                             )
 
                         # Find the first occurence of the group that the 
@@ -427,11 +453,14 @@ class XTream():
 
                         # Save the new channel to the provider object and the new_group object
                         if loading_stream_type == self.liveType:
-                            provider.channels.append(new_channel)
+                            self.channels.append(new_channel)
+                            #provider.channels.append(new_channel)
                         elif loading_stream_type == self.vodType:
-                            provider.movies.append(new_channel)
+                            self.movies.append(new_channel)
+                            #provider.movies.append(new_channel)
                         else:
-                            provider.series.append(new_series)
+                            self.series.append(new_series)
+                            #provider.series.append(new_series)
                         
                         if loading_stream_type != self.seriesType:
                             #self.channels.append(new_channel)
@@ -444,6 +473,8 @@ class XTream():
                                 the_group.series.append(new_series)
                             else:
                                 print("Group not found `{}`".format(stream_channel['name']))
+            else:
+                print("Could not load {} Streams".format(loading_stream_type))
 
     def getSeriesInfoByID(self, get_series):
         start = timer()
@@ -459,7 +490,10 @@ class XTream():
                 for series_season in series_seasons["episodes"].keys():
                     for episode_info in series_seasons["episodes"][str(series_season)]:
                         new_episode_channel = Episode(
-                            series_info,"Testing",episode_info,self.authorization
+                            self,
+                            series_info,
+                            "Testing",
+                            episode_info
                         )
                         season.episodes[episode_info['title']] = new_episode_channel
 
@@ -639,4 +673,3 @@ class XTream():
     def get_all_epg_URL(self):  
         URL = '%s/xmltv.php?username=%s&password=%s' % (self.server, self.username, self.password)  
         return URL
-

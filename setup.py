@@ -7,7 +7,6 @@ with open("README.md", "r") as fh:
 setup(
      name='pyxtream',
      version='0.1',
-     scripts=['pyxtream.py'] ,
      author="Claudio Olmi",
      author_email="superolmo2@gmail.com",
      description="xtream IPTV loader",
