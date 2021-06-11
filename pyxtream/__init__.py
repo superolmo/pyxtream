@@ -1,5 +1,5 @@
 
 from .pyxtream import XTream
-
-__version__ = '0.1'
-__author__ = 'Claudio Olmi'
+from .rest_api import FlaskWrap
+from .progress import progress
+from .version import __version__, __author__, __author_email__

@@ -12,4 +12,15 @@ ffmpeg -y -i "(iptv url)" -c:v copy -c:a copy  -map 0:v -map 0:a -t 00:00:30 "my
 
 # TODO
 
+- Add REST API for communicating with xtream module and server
 - Record and Download streams
+
+# Documentation
+
+pdoc --html pyxtream/ --force
+
+# Versioning
+
+- Increment the MAJOR version when you make incompatible API changes.
+- Increment the MINOR version when you add functionality in a backwards-compatible manner.
+- Increment the PATCH version when you make backwards-compatible bug fixes.
