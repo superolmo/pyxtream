@@ -88,6 +88,7 @@ xTream.load_iptv
 
 | Date | Version | Description |
 | ----------- | -----| ----------- |
+| 2021-06-11 | 0.2.1 | Fixed bug in the way it reload from cache |
 | 2021-06-08 | 0.2.0 | Added searching and download, Added REST Api, Fixed cache-path issue |
 | 2021-06-05 | 0.1.2 | Fixed Server Name |
 | 2021-06-04 | 0.1.1 | Updated README.md |

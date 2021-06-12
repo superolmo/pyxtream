@@ -223,6 +223,9 @@ class XTream():
         },
         liveType
     )
+    # If the cached JSON file is older than threshold_time_sec then load a new
+    # JSON dictionary from the provider
+    threshold_time_sec = 60*60*8
 
     def __init__(self, provider_name: str, provider_username: str, provider_password: str, provider_url: str, cache_path: str = ""):
         """Initialize Xtream Class
@@ -451,20 +454,19 @@ class XTream():
         if osp.isfile(full_filename):
 
             my_data = None
-            #threshold_time = time.mktime(time.gmtime(60*60*8))   # 8 hours
-            threshold_time = 60*60*8
 
             # Get the enlapsed seconds since last file update
             diff_time = time.time() - osp.getmtime(full_filename)
             # If the file was updated less than the threshold time, 
             # it means that the file is still fresh, we can load it.
             # Otherwise skip and return None to force a re-download
-            if threshold_time > diff_time:
+            if self.threshold_time_sec > diff_time:
                 # Load the JSON data
                 try:
                     with open(full_filename,mode='r',encoding='utf-8') as myfile:
-                        #my_data = myfile.read()
                         my_data = json.load(myfile)
+                        if len(my_data) == 0:
+                            my_data = None
                 except Exception as e:
                     print("Could not save to file `{}`: e=`{}`".format(
                         full_filename, e
