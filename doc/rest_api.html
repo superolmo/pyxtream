@@ -35,6 +35,8 @@ try:
 except:
     pass
 
+from os import path
+
 class EndpointAction(object):
 
     def __init__(self, action, function_name):
@@ -42,16 +44,22 @@ class EndpointAction(object):
         self.action = action
 
     def __call__(self, **args):
-        
+
         if args != {}:
+
+            #Stream Search
             if self.function_name == &#34;stream_search&#34;:
                 regex_term = r&#34;^.*{}.*$&#34;.format(args[&#39;term&#39;])
-                answer = self.action(regex_term,&#39;JSON&#39;)
+                answer = self.action(regex_term,  return_type = &#39;JSON&#39;)
+
+            # Download stream
             elif self.function_name == &#34;download_stream&#34;:
                 answer = self.action(int(args[&#39;stream_id&#39;]))
+
             else:
                 print(args)
                 answer = &#34;Hello&#34;
+
             self.response = FlaskResponse(answer, status=200, headers={})
             self.response.headers[&#34;Content-Type&#34;] = &#34;text/json; charset=utf-8&#34;
         else:
@@ -67,7 +75,7 @@ class FlaskWrap(Thread):
 &lt;!DOCTYPE html&gt;&lt;html lang=&#34;en&#34;&gt;&lt;head&gt;&lt;/head&gt;&lt;body&gt;pyxtream API&lt;/body&gt;&lt;/html&gt;
     &#34;&#34;&#34;
 
-    def __init__(self, name, xtream: object, home_html_template: str = None):
+    def __init__(self, name, xtream: object, html_template_folder: str = None):
 
         import logging
         log = logging.getLogger(&#39;werkzeug&#39;)
@@ -82,8 +90,11 @@ class FlaskWrap(Thread):
         self.daemon = True
 
         # Load HTML Home Template if any
-        if home_html_template != None:
-            self.home_template = home_html_template
+        if html_template_folder != None:
+            self.home_template_file_name = path.join(html_template_folder,&#34;index.html&#34;)
+            if path.isfile(self.home_template_file_name):
+                with open(self.home_template_file_name,&#39;r&#39;) as home_html:
+                    self.home_template = home_html.read()
 
         # Add all endpoints
         self.add_endpoint(endpoint=&#39;/&#39;, endpoint_name=&#39;home&#39;, handler=[self.home_template,&#34;&#34;])
@@ -123,16 +134,22 @@ class FlaskWrap(Thread):
         self.action = action
 
     def __call__(self, **args):
-        
+
         if args != {}:
+
+            #Stream Search
             if self.function_name == &#34;stream_search&#34;:
                 regex_term = r&#34;^.*{}.*$&#34;.format(args[&#39;term&#39;])
-                answer = self.action(regex_term,&#39;JSON&#39;)
+                answer = self.action(regex_term,  return_type = &#39;JSON&#39;)
+
+            # Download stream
             elif self.function_name == &#34;download_stream&#34;:
                 answer = self.action(int(args[&#39;stream_id&#39;]))
+
             else:
                 print(args)
                 answer = &#34;Hello&#34;
+
             self.response = FlaskResponse(answer, status=200, headers={})
             self.response.headers[&#34;Content-Type&#34;] = &#34;text/json; charset=utf-8&#34;
         else:
@@ -145,7 +162,7 @@ class FlaskWrap(Thread):
 </dd>
 <dt id="pyxtream.rest_api.FlaskWrap"><code class="flex name class">
 <span>class <span class="ident">FlaskWrap</span></span>
-<span>(</span><span>name, xtream: object, home_html_template: str = None)</span>
+<span>(</span><span>name, xtream: object, html_template_folder: str = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A class that represents a thread of control.</p>
@@ -175,7 +192,7 @@ else to the thread.</p></div>
 &lt;!DOCTYPE html&gt;&lt;html lang=&#34;en&#34;&gt;&lt;head&gt;&lt;/head&gt;&lt;body&gt;pyxtream API&lt;/body&gt;&lt;/html&gt;
     &#34;&#34;&#34;
 
-    def __init__(self, name, xtream: object, home_html_template: str = None):
+    def __init__(self, name, xtream: object, html_template_folder: str = None):
 
         import logging
         log = logging.getLogger(&#39;werkzeug&#39;)
@@ -190,8 +207,11 @@ else to the thread.</p></div>
         self.daemon = True
 
         # Load HTML Home Template if any
-        if home_html_template != None:
-            self.home_template = home_html_template
+        if html_template_folder != None:
+            self.home_template_file_name = path.join(html_template_folder,&#34;index.html&#34;)
+            if path.isfile(self.home_template_file_name):
+                with open(self.home_template_file_name,&#39;r&#39;) as home_html:
+                    self.home_template = home_html.read()
 
         # Add all endpoints
         self.add_endpoint(endpoint=&#39;/&#39;, endpoint_name=&#39;home&#39;, handler=[self.home_template,&#34;&#34;])

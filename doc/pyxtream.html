@@ -56,7 +56,7 @@ Part of this content comes from
 from typing import List
 import requests
 import time
-from os import device_encoding, path as osp
+from os import path as osp
 from os import makedirs
 from os import remove
 
@@ -77,24 +77,25 @@ except:
 from pyxtream.progress import progress
 
 class Channel():
-    stream_type = &#34;&#34;
-    logo_path = &#34;&#34;
-    logo = &#34;&#34;
-    info = &#34;&#34;
+    # Required by Hypnotix
     id = &#34;&#34;
+    name = &#34;&#34; # What is the difference between the below name and title?
+    logo = &#34;&#34;
+    logo_path = &#34;&#34;
+    group_title = &#34;&#34;
+    title = &#34;&#34;
     url = &#34;&#34;
 
-    # What is the difference between the below name and title?
-    name = &#34;&#34;
-    title = &#34;&#34;
-
-    # Group info
-    group_title = &#34;&#34;
+    # XTream
+    stream_type = &#34;&#34;
     group_id = &#34;&#34;
-
     is_adult = &#34;&#34;
     added = &#34;&#34;
     epg_channel_id = &#34;&#34;
+    added = &#34;&#34;
+    
+    # This contains the raw JSON data
+    raw = &#34;&#34;
 
     def __init__(self, xtream: object, group_title, stream_info):
         stream_type = stream_info[&#39;stream_type&#39;]
@@ -111,26 +112,38 @@ class Channel():
             self.raw = stream_info
 
             stream_name = stream_info[&#39;name&#39;]
+
+            # Required by Hypnotix
             self.id = stream_info[&#39;stream_id&#39;]
             self.name = stream_name
             self.logo = stream_info[&#39;stream_icon&#39;]
             self.logo_path = xtream.getLogoLocalPath(self.logo)
-
-            self.group_id = stream_info[&#39;category_id&#39;]
-
             self.group_title = group_title
             self.title = stream_name
+
+            # Check if category_id key is available
+            if &#34;category_id&#34; in stream_info.keys():
+                self.group_id = stream_info[&#39;category_id&#39;]
 
             if stream_type == &#34;live&#34;:
                 stream_extension = &#34;ts&#34;
                 
-                self.is_adult = stream_info[&#39;is_adult&#39;]
-                self.epg_channel_id = stream_info[&#39;epg_channel_id&#39;]
+                # Default to 0
+                self.is_adult = 0
+                # Check if is_adult key is available
+                if &#34;is_adult&#34; in stream_info.keys():
+                    self.is_adult = stream_info[&#39;is_adult&#39;]
+
+                # Check if epg_channel_id key is available
+                if &#34;epg_channel_id&#34; in stream_info.keys():
+                    self.epg_channel_id = stream_info[&#39;epg_channel_id&#39;]
+
                 self.added = stream_info[&#39;added&#39;]
 
             elif stream_type == &#34;movie&#34;:
                 stream_extension = stream_info[&#39;container_extension&#39;]
 
+            # Required by Hypnotix
             self.url = &#34;{}/{}/{}/{}/{}.{}&#34;.format(
                 xtream.server,
                 stream_info[&#39;stream_type&#39;],
@@ -154,9 +167,37 @@ class Channel():
         return jsondata
 
 class Group():
+    # Required by Hypnotix
+    name = &#34;&#34;
+    group_type = &#34;&#34;
+
+    # XTream
+    group_id = &#34;&#34;
+
+    # This contains the raw JSON data
+    raw = &#34;&#34;
+
+    def convert_region_shortname_to_fullname(self, shortname):
+
+        if (shortname == &#34;AR&#34;):
+            return &#34;Arab&#34;
+        elif (shortname == &#34;AM&#34;):
+            return &#34;America&#34;
+        elif (shortname == &#34;AS&#34;):
+            return &#34;Asia&#34;
+        elif (shortname == &#34;AF&#34;):
+            return &#34;Africa&#34;
+        elif (shortname == &#34;EU&#34;):
+            return &#34;Europe&#34;
+        else:
+            return &#34;&#34;
+
     def __init__(self, group_info: dict, stream_type: str):
         # Raw JSON Group
         self.raw = group_info
+
+        self.channels = []
+        self.series = []
 
         TV_GROUP, MOVIES_GROUP, SERIES_GROUP = range(3)
 
@@ -170,12 +211,30 @@ class Group():
             print(&#34;Unrecognized stream type `{}` for `{}`&#34;.format(
                 stream_type, group_info
             ))
+
         self.name = group_info[&#39;category_name&#39;]
-        self.group_id = group_info[&#39;category_id&#39;]
-        self.channels = []
-        self.series = []
+        split_name = self.name.split(&#39;|&#39;)
+        self.region_shortname = &#34;&#34;
+        self.region_longname = &#34;&#34;
+        if len(split_name) &gt; 1:
+            self.region_shortname = split_name[0].strip()
+            self.region_longname = self.convert_region_shortname_to_fullname(self.region_shortname)
+
+        
+        # Check if category_id key is available
+        if &#34;category_id&#34; in group_info.keys():
+            self.group_id = group_info[&#39;category_id&#39;]
 
 class Episode():
+    # Required by Hypnotix
+    title = &#34;&#34;
+    name = &#34;&#34;
+
+    # XTream
+
+    # This contains the raw JSON data
+    raw = &#34;&#34;
+
     def __init__(self, xtream: object, series_info, group_title, episode_info) -&gt; None:
         # Raw JSON Episode
         self.raw = episode_info
@@ -205,21 +264,47 @@ class Episode():
             print(&#34;{} - Bad URL? `{}`&#34;.format(self.name, self.url))
 
 class Serie():
+    # Required by Hypnotix
+    name = &#34;&#34;
+    logo = &#34;&#34;
+    logo_path = &#34;&#34;
+
+    # XTream
+    series_id = &#34;&#34;
+    plot = &#34;&#34;
+    youtube_trailer = &#34;&#34;
+    genre = &#34;&#34;
+
+    # This contains the raw JSON data
+    raw = &#34;&#34;
+
     def __init__(self, xtream: object, series_info):
         # Raw JSON Series
         self.raw = series_info
 
+        # Required by Hypnotix
         self.name = series_info[&#39;name&#39;]
-        self.series_id = series_info[&#39;series_id&#39;]
         self.logo = series_info[&#39;cover&#39;]
         self.logo_path = xtream.getLogoLocalPath(self.logo)
-        
-        self.seasons = {}
-        self.episodes = {}
 
-        self.plot = series_info[&#39;plot&#39;]
-        self.youtube_trailer = series_info[&#39;youtube_trailer&#39;]
-        self.genre = series_info[&#39;genre&#39;]
+        self.seasons = []
+        self.episodes = []
+
+        # Check if category_id key is available
+        if &#34;series_id&#34; in series_info.keys():
+            self.series_id = series_info[&#39;series_id&#39;]
+        
+        # Check if plot key is available
+        if &#34;plot&#34; in series_info.keys():
+            self.plot = series_info[&#39;plot&#39;]
+        
+        # Check if youtube_trailer key is available
+        if &#34;youtube_trailer&#34; in series_info.keys():
+            self.youtube_trailer = series_info[&#39;youtube_trailer&#39;]
+        
+        # Check if genre key is available
+        if &#34;genre&#34; in series_info.keys():
+            self.genre = series_info[&#39;genre&#39;]
 
     def export_json(self):
         jsondata = {}
@@ -230,6 +315,9 @@ class Serie():
         return jsondata
 
 class Season():
+    # Required by Hypnotix
+    name = &#34;&#34;
+
     def __init__(self, name):
         self.name = name
         self.episodes = {}
@@ -261,6 +349,9 @@ class XTream():
         },
         liveType
     )
+    # If the cached JSON file is older than threshold_time_sec then load a new
+    # JSON dictionary from the provider
+    threshold_time_sec = 60*60*8
 
     def __init__(self, provider_name: str, provider_username: str, provider_password: str, provider_url: str, cache_path: str = &#34;&#34;):
         &#34;&#34;&#34;Initialize Xtream Class
@@ -277,6 +368,12 @@ class XTream():
         self.password = provider_password
         self.name = provider_name
         self.cache_path = cache_path
+        
+        # get the pyxtream local path
+        self.app_fullpath = osp.dirname(osp.realpath(__file__))
+
+        # prepare location of local html template
+        self.html_template_folder = osp.join(self.app_fullpath,&#34;html&#34;)
 
         # if the cache_path is specified, test that it is a directory
         if self.cache_path != &#34;&#34;:
@@ -290,18 +387,20 @@ class XTream():
             self.cache_path = osp.expanduser(&#34;~/.xtream-cache/&#34;)
             if not osp.isdir(self.cache_path):
                 makedirs(self.cache_path, exist_ok=True)
+            print(&#34;pyxtream cache path located at {}&#34;.format(self.cache_path))
 
         self.authenticate()
 
         if USE_FLASK:
-            self.flaskapp = FlaskWrap(&#39;pyxtream&#39;, self)
+            self.flaskapp = FlaskWrap(&#39;pyxtream&#39;, self, self.html_template_folder)
             self.flaskapp.start()
 
-    def search_stream(self, keyword: str, return_type: str = &#34;LIST&#34;) -&gt; List:
+    def search_stream(self, keyword: str, ignore_case: bool = True, return_type: str = &#34;LIST&#34;) -&gt; List:
         &#34;&#34;&#34;Search for streams
 
         Args:
             keyword (str): Keyword to search for. Supports REGEX
+            ignore_case (bool, optional): True to ignore case during search. Defaults to &#34;True&#34;.
             return_type (str, optional): Output format, &#39;LIST&#39; or &#39;JSON&#39;. Defaults to &#34;LIST&#34;.
 
         Returns:
@@ -310,7 +409,10 @@ class XTream():
 
         search_result = []
         
-        regex = re.compile(keyword)
+        if ignore_case:
+            regex = re.compile(keyword,re.IGNORECASE)
+        else:
+            regex = re.compile(keyword)
 
         print(&#34;Checking {} movies&#34;.format(len(self.movies)))
         for stream in self.movies:
@@ -357,7 +459,7 @@ class XTream():
 
         Args:
             url (str): Complete URL of the stream
-            fullpath_filename (str): Complete File path where to save the stream.
+            fullpath_filename (str): Complete File path where to save the stream
 
         Returns:
             bool: True if successful, False if error
@@ -464,12 +566,19 @@ class XTream():
 
     # Authentication returns information about the account and server:
     def authenticate(self):
-        r = requests.get(self.get_authenticate_URL())
-        self.authData = r.json()
-        self.authorization = {
-            &#34;username&#34;: self.authData[&#34;user_info&#34;][&#34;username&#34;],
-            &#34;password&#34;: self.authData[&#34;user_info&#34;][&#34;password&#34;]
+        self.authData = {}
+        try:
+            r = requests.get(
+                self.get_authenticate_URL()
+                )
+            self.authData = r.json()
+            self.authorization = {
+                &#34;username&#34;: self.authData[&#34;user_info&#34;][&#34;username&#34;],
+                &#34;password&#34;: self.authData[&#34;user_info&#34;][&#34;password&#34;]
             }
+        except requests.exceptions.ConnectionError:
+            # If connection refused
+            print(&#34;{} - Connection refused URL: {}&#34;.format(self.name, self.server))
 
     def loadFromFile(self, filename) -&gt; dict:
         &#34;&#34;&#34;Try to load the distionary from file
@@ -489,20 +598,19 @@ class XTream():
         if osp.isfile(full_filename):
 
             my_data = None
-            #threshold_time = time.mktime(time.gmtime(60*60*8))   # 8 hours
-            threshold_time = 60*60*8
 
             # Get the enlapsed seconds since last file update
             diff_time = time.time() - osp.getmtime(full_filename)
             # If the file was updated less than the threshold time, 
             # it means that the file is still fresh, we can load it.
             # Otherwise skip and return None to force a re-download
-            if threshold_time &gt; diff_time:
+            if self.threshold_time_sec &gt; diff_time:
                 # Load the JSON data
                 try:
                     with open(full_filename,mode=&#39;r&#39;,encoding=&#39;utf-8&#39;) as myfile:
-                        #my_data = myfile.read()
                         my_data = json.load(myfile)
+                        if len(my_data) == 0:
+                            my_data = None
                 except Exception as e:
                     print(&#34;Could not save to file `{}`: e=`{}`&#34;.format(
                         full_filename, e
@@ -587,6 +695,7 @@ class XTream():
                     #provider.groups.append(new_group)
             else:
                 print(&#34;Could not load {} Groups&#34;.format(loading_stream_type))
+                break
 
             ## Get Streams
 
@@ -615,13 +724,26 @@ class XTream():
                 for stream_channel in all_streams:
                     # Generate Group Title
                     if stream_channel[&#39;name&#39;][0].isalnum():
-                        group_title = str.split(stream_channel[&#39;name&#39;],&#39;|&#39;)[0]
 
                         # Some channels have no group, 
                         # so let&#39;s add them to the catche all group
                         if stream_channel[&#39;category_id&#39;] == None:
                             stream_channel[&#39;category_id&#39;] = &#39;9999&#39;
+                        elif stream_channel[&#39;category_id&#39;] != &#39;1&#39;:
+                            pass
+
+                        # Find the first occurence of the group that the
+                        # Channel or Stream is pointing to
+                        the_group = next(
+                            (x for x in self.groups if x.group_id == stream_channel[&#39;category_id&#39;]),
+                            None
+                        )
                         
+                        if the_group != None:
+                            group_title = the_group.name
+                        else:
+                            group_title = self.catch_all_group.name
+
                         if loading_stream_type == self.seriesType:
                             # Load all Series
                             new_series = Serie(self, stream_channel)
@@ -638,35 +760,22 @@ class XTream():
                                 stream_channel
                             )
 
-                        # Find the first occurence of the group that the 
-                        # Channel or Stream is pointing to
-                        the_group = next(
-                            (x for x in self.groups if x.group_id == stream_channel[&#39;category_id&#39;]),
-                            None
-                        )
-
-                        # Save the new channel to the provider object and the new_group object
+                        # Save the new channel to the local list of channels
                         if loading_stream_type == self.liveType:
                             self.channels.append(new_channel)
-                            #provider.channels.append(new_channel)
                         elif loading_stream_type == self.vodType:
                             self.movies.append(new_channel)
-                            #provider.movies.append(new_channel)
                         else:
                             self.series.append(new_series)
-                            #provider.series.append(new_series)
-                        
-                        if loading_stream_type != self.seriesType:
-                            #self.channels.append(new_channel)
-                            if the_group != None:
+
+                        # Add stream to the specific Group       
+                        if the_group != None:
+                            if loading_stream_type != self.seriesType:
                                 the_group.channels.append(new_channel)
                             else:
-                                print(&#34;Group not found `{}`&#34;.format(stream_channel[&#39;name&#39;]))
-                        else:
-                            if the_group != None:
                                 the_group.series.append(new_series)
-                            else:
-                                print(&#34;Group not found `{}`&#34;.format(stream_channel[&#39;name&#39;]))
+                        else:
+                            print(&#34;Group not found `{}`&#34;.format(stream_channel[&#39;name&#39;]))
             else:
                 print(&#34;Could not load {} Streams&#34;.format(loading_stream_type))
 
@@ -889,24 +998,25 @@ class XTream():
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class Channel():
-    stream_type = &#34;&#34;
-    logo_path = &#34;&#34;
-    logo = &#34;&#34;
-    info = &#34;&#34;
+    # Required by Hypnotix
     id = &#34;&#34;
+    name = &#34;&#34; # What is the difference between the below name and title?
+    logo = &#34;&#34;
+    logo_path = &#34;&#34;
+    group_title = &#34;&#34;
+    title = &#34;&#34;
     url = &#34;&#34;
 
-    # What is the difference between the below name and title?
-    name = &#34;&#34;
-    title = &#34;&#34;
-
-    # Group info
-    group_title = &#34;&#34;
+    # XTream
+    stream_type = &#34;&#34;
     group_id = &#34;&#34;
-
     is_adult = &#34;&#34;
     added = &#34;&#34;
     epg_channel_id = &#34;&#34;
+    added = &#34;&#34;
+    
+    # This contains the raw JSON data
+    raw = &#34;&#34;
 
     def __init__(self, xtream: object, group_title, stream_info):
         stream_type = stream_info[&#39;stream_type&#39;]
@@ -923,26 +1033,38 @@ class XTream():
             self.raw = stream_info
 
             stream_name = stream_info[&#39;name&#39;]
+
+            # Required by Hypnotix
             self.id = stream_info[&#39;stream_id&#39;]
             self.name = stream_name
             self.logo = stream_info[&#39;stream_icon&#39;]
             self.logo_path = xtream.getLogoLocalPath(self.logo)
-
-            self.group_id = stream_info[&#39;category_id&#39;]
-
             self.group_title = group_title
             self.title = stream_name
+
+            # Check if category_id key is available
+            if &#34;category_id&#34; in stream_info.keys():
+                self.group_id = stream_info[&#39;category_id&#39;]
 
             if stream_type == &#34;live&#34;:
                 stream_extension = &#34;ts&#34;
                 
-                self.is_adult = stream_info[&#39;is_adult&#39;]
-                self.epg_channel_id = stream_info[&#39;epg_channel_id&#39;]
+                # Default to 0
+                self.is_adult = 0
+                # Check if is_adult key is available
+                if &#34;is_adult&#34; in stream_info.keys():
+                    self.is_adult = stream_info[&#39;is_adult&#39;]
+
+                # Check if epg_channel_id key is available
+                if &#34;epg_channel_id&#34; in stream_info.keys():
+                    self.epg_channel_id = stream_info[&#39;epg_channel_id&#39;]
+
                 self.added = stream_info[&#39;added&#39;]
 
             elif stream_type == &#34;movie&#34;:
                 stream_extension = stream_info[&#39;container_extension&#39;]
 
+            # Required by Hypnotix
             self.url = &#34;{}/{}/{}/{}/{}.{}&#34;.format(
                 xtream.server,
                 stream_info[&#39;stream_type&#39;],
@@ -987,10 +1109,6 @@ class XTream():
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="pyxtream.pyxtream.Channel.info"><code class="name">var <span class="ident">info</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
 <dt id="pyxtream.pyxtream.Channel.is_adult"><code class="name">var <span class="ident">is_adult</span></code></dt>
 <dd>
 <div class="desc"></div>
@@ -1004,6 +1122,10 @@ class XTream():
 <div class="desc"></div>
 </dd>
 <dt id="pyxtream.pyxtream.Channel.name"><code class="name">var <span class="ident">name</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="pyxtream.pyxtream.Channel.raw"><code class="name">var <span class="ident">raw</span></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -1054,6 +1176,15 @@ class XTream():
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class Episode():
+    # Required by Hypnotix
+    title = &#34;&#34;
+    name = &#34;&#34;
+
+    # XTream
+
+    # This contains the raw JSON data
+    raw = &#34;&#34;
+
     def __init__(self, xtream: object, series_info, group_title, episode_info) -&gt; None:
         # Raw JSON Episode
         self.raw = episode_info
@@ -1082,6 +1213,21 @@ class XTream():
         if not xtream.validateURL(self.url):
             print(&#34;{} - Bad URL? `{}`&#34;.format(self.name, self.url))</code></pre>
 </details>
+<h3>Class variables</h3>
+<dl>
+<dt id="pyxtream.pyxtream.Episode.name"><code class="name">var <span class="ident">name</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="pyxtream.pyxtream.Episode.raw"><code class="name">var <span class="ident">raw</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="pyxtream.pyxtream.Episode.title"><code class="name">var <span class="ident">title</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
 </dd>
 <dt id="pyxtream.pyxtream.Group"><code class="flex name class">
 <span>class <span class="ident">Group</span></span>
@@ -1094,9 +1240,37 @@ class XTream():
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class Group():
+    # Required by Hypnotix
+    name = &#34;&#34;
+    group_type = &#34;&#34;
+
+    # XTream
+    group_id = &#34;&#34;
+
+    # This contains the raw JSON data
+    raw = &#34;&#34;
+
+    def convert_region_shortname_to_fullname(self, shortname):
+
+        if (shortname == &#34;AR&#34;):
+            return &#34;Arab&#34;
+        elif (shortname == &#34;AM&#34;):
+            return &#34;America&#34;
+        elif (shortname == &#34;AS&#34;):
+            return &#34;Asia&#34;
+        elif (shortname == &#34;AF&#34;):
+            return &#34;Africa&#34;
+        elif (shortname == &#34;EU&#34;):
+            return &#34;Europe&#34;
+        else:
+            return &#34;&#34;
+
     def __init__(self, group_info: dict, stream_type: str):
         # Raw JSON Group
         self.raw = group_info
+
+        self.channels = []
+        self.series = []
 
         TV_GROUP, MOVIES_GROUP, SERIES_GROUP = range(3)
 
@@ -1110,11 +1284,67 @@ class XTream():
             print(&#34;Unrecognized stream type `{}` for `{}`&#34;.format(
                 stream_type, group_info
             ))
+
         self.name = group_info[&#39;category_name&#39;]
-        self.group_id = group_info[&#39;category_id&#39;]
-        self.channels = []
-        self.series = []</code></pre>
+        split_name = self.name.split(&#39;|&#39;)
+        self.region_shortname = &#34;&#34;
+        self.region_longname = &#34;&#34;
+        if len(split_name) &gt; 1:
+            self.region_shortname = split_name[0].strip()
+            self.region_longname = self.convert_region_shortname_to_fullname(self.region_shortname)
+
+        
+        # Check if category_id key is available
+        if &#34;category_id&#34; in group_info.keys():
+            self.group_id = group_info[&#39;category_id&#39;]</code></pre>
 </details>
+<h3>Class variables</h3>
+<dl>
+<dt id="pyxtream.pyxtream.Group.group_id"><code class="name">var <span class="ident">group_id</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="pyxtream.pyxtream.Group.group_type"><code class="name">var <span class="ident">group_type</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="pyxtream.pyxtream.Group.name"><code class="name">var <span class="ident">name</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="pyxtream.pyxtream.Group.raw"><code class="name">var <span class="ident">raw</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="pyxtream.pyxtream.Group.convert_region_shortname_to_fullname"><code class="name flex">
+<span>def <span class="ident">convert_region_shortname_to_fullname</span></span>(<span>self, shortname)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def convert_region_shortname_to_fullname(self, shortname):
+
+    if (shortname == &#34;AR&#34;):
+        return &#34;Arab&#34;
+    elif (shortname == &#34;AM&#34;):
+        return &#34;America&#34;
+    elif (shortname == &#34;AS&#34;):
+        return &#34;Asia&#34;
+    elif (shortname == &#34;AF&#34;):
+        return &#34;Africa&#34;
+    elif (shortname == &#34;EU&#34;):
+        return &#34;Europe&#34;
+    else:
+        return &#34;&#34;</code></pre>
+</details>
+</dd>
+</dl>
 </dd>
 <dt id="pyxtream.pyxtream.Season"><code class="flex name class">
 <span>class <span class="ident">Season</span></span>
@@ -1127,10 +1357,20 @@ class XTream():
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class Season():
+    # Required by Hypnotix
+    name = &#34;&#34;
+
     def __init__(self, name):
         self.name = name
         self.episodes = {}</code></pre>
 </details>
+<h3>Class variables</h3>
+<dl>
+<dt id="pyxtream.pyxtream.Season.name"><code class="name">var <span class="ident">name</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
 </dd>
 <dt id="pyxtream.pyxtream.Serie"><code class="flex name class">
 <span>class <span class="ident">Serie</span></span>
@@ -1143,21 +1383,47 @@ class XTream():
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class Serie():
+    # Required by Hypnotix
+    name = &#34;&#34;
+    logo = &#34;&#34;
+    logo_path = &#34;&#34;
+
+    # XTream
+    series_id = &#34;&#34;
+    plot = &#34;&#34;
+    youtube_trailer = &#34;&#34;
+    genre = &#34;&#34;
+
+    # This contains the raw JSON data
+    raw = &#34;&#34;
+
     def __init__(self, xtream: object, series_info):
         # Raw JSON Series
         self.raw = series_info
 
+        # Required by Hypnotix
         self.name = series_info[&#39;name&#39;]
-        self.series_id = series_info[&#39;series_id&#39;]
         self.logo = series_info[&#39;cover&#39;]
         self.logo_path = xtream.getLogoLocalPath(self.logo)
-        
-        self.seasons = {}
-        self.episodes = {}
 
-        self.plot = series_info[&#39;plot&#39;]
-        self.youtube_trailer = series_info[&#39;youtube_trailer&#39;]
-        self.genre = series_info[&#39;genre&#39;]
+        self.seasons = []
+        self.episodes = []
+
+        # Check if category_id key is available
+        if &#34;series_id&#34; in series_info.keys():
+            self.series_id = series_info[&#39;series_id&#39;]
+        
+        # Check if plot key is available
+        if &#34;plot&#34; in series_info.keys():
+            self.plot = series_info[&#39;plot&#39;]
+        
+        # Check if youtube_trailer key is available
+        if &#34;youtube_trailer&#34; in series_info.keys():
+            self.youtube_trailer = series_info[&#39;youtube_trailer&#39;]
+        
+        # Check if genre key is available
+        if &#34;genre&#34; in series_info.keys():
+            self.genre = series_info[&#39;genre&#39;]
 
     def export_json(self):
         jsondata = {}
@@ -1167,6 +1433,41 @@ class XTream():
 
         return jsondata</code></pre>
 </details>
+<h3>Class variables</h3>
+<dl>
+<dt id="pyxtream.pyxtream.Serie.genre"><code class="name">var <span class="ident">genre</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="pyxtream.pyxtream.Serie.logo"><code class="name">var <span class="ident">logo</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="pyxtream.pyxtream.Serie.logo_path"><code class="name">var <span class="ident">logo_path</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="pyxtream.pyxtream.Serie.name"><code class="name">var <span class="ident">name</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="pyxtream.pyxtream.Serie.plot"><code class="name">var <span class="ident">plot</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="pyxtream.pyxtream.Serie.raw"><code class="name">var <span class="ident">raw</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="pyxtream.pyxtream.Serie.series_id"><code class="name">var <span class="ident">series_id</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="pyxtream.pyxtream.Serie.youtube_trailer"><code class="name">var <span class="ident">youtube_trailer</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="pyxtream.pyxtream.Serie.export_json"><code class="name flex">
@@ -1239,6 +1540,9 @@ class XTream():
         },
         liveType
     )
+    # If the cached JSON file is older than threshold_time_sec then load a new
+    # JSON dictionary from the provider
+    threshold_time_sec = 60*60*8
 
     def __init__(self, provider_name: str, provider_username: str, provider_password: str, provider_url: str, cache_path: str = &#34;&#34;):
         &#34;&#34;&#34;Initialize Xtream Class
@@ -1255,6 +1559,12 @@ class XTream():
         self.password = provider_password
         self.name = provider_name
         self.cache_path = cache_path
+        
+        # get the pyxtream local path
+        self.app_fullpath = osp.dirname(osp.realpath(__file__))
+
+        # prepare location of local html template
+        self.html_template_folder = osp.join(self.app_fullpath,&#34;html&#34;)
 
         # if the cache_path is specified, test that it is a directory
         if self.cache_path != &#34;&#34;:
@@ -1268,18 +1578,20 @@ class XTream():
             self.cache_path = osp.expanduser(&#34;~/.xtream-cache/&#34;)
             if not osp.isdir(self.cache_path):
                 makedirs(self.cache_path, exist_ok=True)
+            print(&#34;pyxtream cache path located at {}&#34;.format(self.cache_path))
 
         self.authenticate()
 
         if USE_FLASK:
-            self.flaskapp = FlaskWrap(&#39;pyxtream&#39;, self)
+            self.flaskapp = FlaskWrap(&#39;pyxtream&#39;, self, self.html_template_folder)
             self.flaskapp.start()
 
-    def search_stream(self, keyword: str, return_type: str = &#34;LIST&#34;) -&gt; List:
+    def search_stream(self, keyword: str, ignore_case: bool = True, return_type: str = &#34;LIST&#34;) -&gt; List:
         &#34;&#34;&#34;Search for streams
 
         Args:
             keyword (str): Keyword to search for. Supports REGEX
+            ignore_case (bool, optional): True to ignore case during search. Defaults to &#34;True&#34;.
             return_type (str, optional): Output format, &#39;LIST&#39; or &#39;JSON&#39;. Defaults to &#34;LIST&#34;.
 
         Returns:
@@ -1288,7 +1600,10 @@ class XTream():
 
         search_result = []
         
-        regex = re.compile(keyword)
+        if ignore_case:
+            regex = re.compile(keyword,re.IGNORECASE)
+        else:
+            regex = re.compile(keyword)
 
         print(&#34;Checking {} movies&#34;.format(len(self.movies)))
         for stream in self.movies:
@@ -1335,7 +1650,7 @@ class XTream():
 
         Args:
             url (str): Complete URL of the stream
-            fullpath_filename (str): Complete File path where to save the stream.
+            fullpath_filename (str): Complete File path where to save the stream
 
         Returns:
             bool: True if successful, False if error
@@ -1442,12 +1757,19 @@ class XTream():
 
     # Authentication returns information about the account and server:
     def authenticate(self):
-        r = requests.get(self.get_authenticate_URL())
-        self.authData = r.json()
-        self.authorization = {
-            &#34;username&#34;: self.authData[&#34;user_info&#34;][&#34;username&#34;],
-            &#34;password&#34;: self.authData[&#34;user_info&#34;][&#34;password&#34;]
+        self.authData = {}
+        try:
+            r = requests.get(
+                self.get_authenticate_URL()
+                )
+            self.authData = r.json()
+            self.authorization = {
+                &#34;username&#34;: self.authData[&#34;user_info&#34;][&#34;username&#34;],
+                &#34;password&#34;: self.authData[&#34;user_info&#34;][&#34;password&#34;]
             }
+        except requests.exceptions.ConnectionError:
+            # If connection refused
+            print(&#34;{} - Connection refused URL: {}&#34;.format(self.name, self.server))
 
     def loadFromFile(self, filename) -&gt; dict:
         &#34;&#34;&#34;Try to load the distionary from file
@@ -1467,20 +1789,19 @@ class XTream():
         if osp.isfile(full_filename):
 
             my_data = None
-            #threshold_time = time.mktime(time.gmtime(60*60*8))   # 8 hours
-            threshold_time = 60*60*8
 
             # Get the enlapsed seconds since last file update
             diff_time = time.time() - osp.getmtime(full_filename)
             # If the file was updated less than the threshold time, 
             # it means that the file is still fresh, we can load it.
             # Otherwise skip and return None to force a re-download
-            if threshold_time &gt; diff_time:
+            if self.threshold_time_sec &gt; diff_time:
                 # Load the JSON data
                 try:
                     with open(full_filename,mode=&#39;r&#39;,encoding=&#39;utf-8&#39;) as myfile:
-                        #my_data = myfile.read()
                         my_data = json.load(myfile)
+                        if len(my_data) == 0:
+                            my_data = None
                 except Exception as e:
                     print(&#34;Could not save to file `{}`: e=`{}`&#34;.format(
                         full_filename, e
@@ -1565,6 +1886,7 @@ class XTream():
                     #provider.groups.append(new_group)
             else:
                 print(&#34;Could not load {} Groups&#34;.format(loading_stream_type))
+                break
 
             ## Get Streams
 
@@ -1593,13 +1915,26 @@ class XTream():
                 for stream_channel in all_streams:
                     # Generate Group Title
                     if stream_channel[&#39;name&#39;][0].isalnum():
-                        group_title = str.split(stream_channel[&#39;name&#39;],&#39;|&#39;)[0]
 
                         # Some channels have no group, 
                         # so let&#39;s add them to the catche all group
                         if stream_channel[&#39;category_id&#39;] == None:
                             stream_channel[&#39;category_id&#39;] = &#39;9999&#39;
+                        elif stream_channel[&#39;category_id&#39;] != &#39;1&#39;:
+                            pass
+
+                        # Find the first occurence of the group that the
+                        # Channel or Stream is pointing to
+                        the_group = next(
+                            (x for x in self.groups if x.group_id == stream_channel[&#39;category_id&#39;]),
+                            None
+                        )
                         
+                        if the_group != None:
+                            group_title = the_group.name
+                        else:
+                            group_title = self.catch_all_group.name
+
                         if loading_stream_type == self.seriesType:
                             # Load all Series
                             new_series = Serie(self, stream_channel)
@@ -1616,35 +1951,22 @@ class XTream():
                                 stream_channel
                             )
 
-                        # Find the first occurence of the group that the 
-                        # Channel or Stream is pointing to
-                        the_group = next(
-                            (x for x in self.groups if x.group_id == stream_channel[&#39;category_id&#39;]),
-                            None
-                        )
-
-                        # Save the new channel to the provider object and the new_group object
+                        # Save the new channel to the local list of channels
                         if loading_stream_type == self.liveType:
                             self.channels.append(new_channel)
-                            #provider.channels.append(new_channel)
                         elif loading_stream_type == self.vodType:
                             self.movies.append(new_channel)
-                            #provider.movies.append(new_channel)
                         else:
                             self.series.append(new_series)
-                            #provider.series.append(new_series)
-                        
-                        if loading_stream_type != self.seriesType:
-                            #self.channels.append(new_channel)
-                            if the_group != None:
+
+                        # Add stream to the specific Group       
+                        if the_group != None:
+                            if loading_stream_type != self.seriesType:
                                 the_group.channels.append(new_channel)
                             else:
-                                print(&#34;Group not found `{}`&#34;.format(stream_channel[&#39;name&#39;]))
-                        else:
-                            if the_group != None:
                                 the_group.series.append(new_series)
-                            else:
-                                print(&#34;Group not found `{}`&#34;.format(stream_channel[&#39;name&#39;]))
+                        else:
+                            print(&#34;Group not found `{}`&#34;.format(stream_channel[&#39;name&#39;]))
             else:
                 print(&#34;Could not load {} Streams&#34;.format(loading_stream_type))
 
@@ -1896,6 +2218,10 @@ class XTream():
 <dd>
 <div class="desc"></div>
 </dd>
+<dt id="pyxtream.pyxtream.XTream.threshold_time_sec"><code class="name">var <span class="ident">threshold_time_sec</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="pyxtream.pyxtream.XTream.username"><code class="name">var <span class="ident">username</span></code></dt>
 <dd>
 <div class="desc"></div>
@@ -1945,12 +2271,19 @@ class XTream():
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def authenticate(self):
-    r = requests.get(self.get_authenticate_URL())
-    self.authData = r.json()
-    self.authorization = {
-        &#34;username&#34;: self.authData[&#34;user_info&#34;][&#34;username&#34;],
-        &#34;password&#34;: self.authData[&#34;user_info&#34;][&#34;password&#34;]
-        }</code></pre>
+    self.authData = {}
+    try:
+        r = requests.get(
+            self.get_authenticate_URL()
+            )
+        self.authData = r.json()
+        self.authorization = {
+            &#34;username&#34;: self.authData[&#34;user_info&#34;][&#34;username&#34;],
+            &#34;password&#34;: self.authData[&#34;user_info&#34;][&#34;password&#34;]
+        }
+    except requests.exceptions.ConnectionError:
+        # If connection refused
+        print(&#34;{} - Connection refused URL: {}&#34;.format(self.name, self.server))</code></pre>
 </details>
 </dd>
 <dt id="pyxtream.pyxtream.XTream.categories"><code class="name flex">
@@ -2035,7 +2368,7 @@ class XTream():
 <dt><strong><code>url</code></strong> :&ensp;<code>str</code></dt>
 <dd>Complete URL of the stream</dd>
 <dt><strong><code>fullpath_filename</code></strong> :&ensp;<code>str</code></dt>
-<dd>Complete File path where to save the stream.</dd>
+<dd>Complete File path where to save the stream</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -2051,7 +2384,7 @@ class XTream():
 
     Args:
         url (str): Complete URL of the stream
-        fullpath_filename (str): Complete File path where to save the stream.
+        fullpath_filename (str): Complete File path where to save the stream
 
     Returns:
         bool: True if successful, False if error
@@ -2470,20 +2803,19 @@ class XTream():
     if osp.isfile(full_filename):
 
         my_data = None
-        #threshold_time = time.mktime(time.gmtime(60*60*8))   # 8 hours
-        threshold_time = 60*60*8
 
         # Get the enlapsed seconds since last file update
         diff_time = time.time() - osp.getmtime(full_filename)
         # If the file was updated less than the threshold time, 
         # it means that the file is still fresh, we can load it.
         # Otherwise skip and return None to force a re-download
-        if threshold_time &gt; diff_time:
+        if self.threshold_time_sec &gt; diff_time:
             # Load the JSON data
             try:
                 with open(full_filename,mode=&#39;r&#39;,encoding=&#39;utf-8&#39;) as myfile:
-                    #my_data = myfile.read()
                     my_data = json.load(myfile)
+                    if len(my_data) == 0:
+                        my_data = None
             except Exception as e:
                 print(&#34;Could not save to file `{}`: e=`{}`&#34;.format(
                     full_filename, e
@@ -2548,6 +2880,7 @@ class XTream():
                 #provider.groups.append(new_group)
         else:
             print(&#34;Could not load {} Groups&#34;.format(loading_stream_type))
+            break
 
         ## Get Streams
 
@@ -2576,13 +2909,26 @@ class XTream():
             for stream_channel in all_streams:
                 # Generate Group Title
                 if stream_channel[&#39;name&#39;][0].isalnum():
-                    group_title = str.split(stream_channel[&#39;name&#39;],&#39;|&#39;)[0]
 
                     # Some channels have no group, 
                     # so let&#39;s add them to the catche all group
                     if stream_channel[&#39;category_id&#39;] == None:
                         stream_channel[&#39;category_id&#39;] = &#39;9999&#39;
+                    elif stream_channel[&#39;category_id&#39;] != &#39;1&#39;:
+                        pass
+
+                    # Find the first occurence of the group that the
+                    # Channel or Stream is pointing to
+                    the_group = next(
+                        (x for x in self.groups if x.group_id == stream_channel[&#39;category_id&#39;]),
+                        None
+                    )
                     
+                    if the_group != None:
+                        group_title = the_group.name
+                    else:
+                        group_title = self.catch_all_group.name
+
                     if loading_stream_type == self.seriesType:
                         # Load all Series
                         new_series = Serie(self, stream_channel)
@@ -2599,35 +2945,22 @@ class XTream():
                             stream_channel
                         )
 
-                    # Find the first occurence of the group that the 
-                    # Channel or Stream is pointing to
-                    the_group = next(
-                        (x for x in self.groups if x.group_id == stream_channel[&#39;category_id&#39;]),
-                        None
-                    )
-
-                    # Save the new channel to the provider object and the new_group object
+                    # Save the new channel to the local list of channels
                     if loading_stream_type == self.liveType:
                         self.channels.append(new_channel)
-                        #provider.channels.append(new_channel)
                     elif loading_stream_type == self.vodType:
                         self.movies.append(new_channel)
-                        #provider.movies.append(new_channel)
                     else:
                         self.series.append(new_series)
-                        #provider.series.append(new_series)
-                    
-                    if loading_stream_type != self.seriesType:
-                        #self.channels.append(new_channel)
-                        if the_group != None:
+
+                    # Add stream to the specific Group       
+                    if the_group != None:
+                        if loading_stream_type != self.seriesType:
                             the_group.channels.append(new_channel)
                         else:
-                            print(&#34;Group not found `{}`&#34;.format(stream_channel[&#39;name&#39;]))
-                    else:
-                        if the_group != None:
                             the_group.series.append(new_series)
-                        else:
-                            print(&#34;Group not found `{}`&#34;.format(stream_channel[&#39;name&#39;]))
+                    else:
+                        print(&#34;Group not found `{}`&#34;.format(stream_channel[&#39;name&#39;]))
         else:
             print(&#34;Could not load {} Streams&#34;.format(loading_stream_type))</code></pre>
 </details>
@@ -2686,7 +3019,7 @@ class XTream():
 </details>
 </dd>
 <dt id="pyxtream.pyxtream.XTream.search_stream"><code class="name flex">
-<span>def <span class="ident">search_stream</span></span>(<span>self, keyword: str, return_type: str = 'LIST') ‑> List</span>
+<span>def <span class="ident">search_stream</span></span>(<span>self, keyword: str, ignore_case: bool = True, return_type: str = 'LIST') ‑> List</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Search for streams</p>
@@ -2694,6 +3027,8 @@ class XTream():
 <dl>
 <dt><strong><code>keyword</code></strong> :&ensp;<code>str</code></dt>
 <dd>Keyword to search for. Supports REGEX</dd>
+<dt><strong><code>ignore_case</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>True to ignore case during search. Defaults to "True".</dd>
 <dt><strong><code>return_type</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Output format, 'LIST' or 'JSON'. Defaults to "LIST".</dd>
 </dl>
@@ -2706,11 +3041,12 @@ class XTream():
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def search_stream(self, keyword: str, return_type: str = &#34;LIST&#34;) -&gt; List:
+<pre><code class="python">def search_stream(self, keyword: str, ignore_case: bool = True, return_type: str = &#34;LIST&#34;) -&gt; List:
     &#34;&#34;&#34;Search for streams
 
     Args:
         keyword (str): Keyword to search for. Supports REGEX
+        ignore_case (bool, optional): True to ignore case during search. Defaults to &#34;True&#34;.
         return_type (str, optional): Output format, &#39;LIST&#39; or &#39;JSON&#39;. Defaults to &#34;LIST&#34;.
 
     Returns:
@@ -2719,7 +3055,10 @@ class XTream():
 
     search_result = []
     
-    regex = re.compile(keyword)
+    if ignore_case:
+        regex = re.compile(keyword,re.IGNORECASE)
+    else:
+        regex = re.compile(keyword)
 
     print(&#34;Checking {} movies&#34;.format(len(self.movies)))
     for stream in self.movies:
@@ -2930,11 +3269,11 @@ and converts spaces to hyphens.</p>
 <li><code><a title="pyxtream.pyxtream.Channel.group_id" href="#pyxtream.pyxtream.Channel.group_id">group_id</a></code></li>
 <li><code><a title="pyxtream.pyxtream.Channel.group_title" href="#pyxtream.pyxtream.Channel.group_title">group_title</a></code></li>
 <li><code><a title="pyxtream.pyxtream.Channel.id" href="#pyxtream.pyxtream.Channel.id">id</a></code></li>
-<li><code><a title="pyxtream.pyxtream.Channel.info" href="#pyxtream.pyxtream.Channel.info">info</a></code></li>
 <li><code><a title="pyxtream.pyxtream.Channel.is_adult" href="#pyxtream.pyxtream.Channel.is_adult">is_adult</a></code></li>
 <li><code><a title="pyxtream.pyxtream.Channel.logo" href="#pyxtream.pyxtream.Channel.logo">logo</a></code></li>
 <li><code><a title="pyxtream.pyxtream.Channel.logo_path" href="#pyxtream.pyxtream.Channel.logo_path">logo_path</a></code></li>
 <li><code><a title="pyxtream.pyxtream.Channel.name" href="#pyxtream.pyxtream.Channel.name">name</a></code></li>
+<li><code><a title="pyxtream.pyxtream.Channel.raw" href="#pyxtream.pyxtream.Channel.raw">raw</a></code></li>
 <li><code><a title="pyxtream.pyxtream.Channel.stream_type" href="#pyxtream.pyxtream.Channel.stream_type">stream_type</a></code></li>
 <li><code><a title="pyxtream.pyxtream.Channel.title" href="#pyxtream.pyxtream.Channel.title">title</a></code></li>
 <li><code><a title="pyxtream.pyxtream.Channel.url" href="#pyxtream.pyxtream.Channel.url">url</a></code></li>
@@ -2942,17 +3281,40 @@ and converts spaces to hyphens.</p>
 </li>
 <li>
 <h4><code><a title="pyxtream.pyxtream.Episode" href="#pyxtream.pyxtream.Episode">Episode</a></code></h4>
+<ul class="">
+<li><code><a title="pyxtream.pyxtream.Episode.name" href="#pyxtream.pyxtream.Episode.name">name</a></code></li>
+<li><code><a title="pyxtream.pyxtream.Episode.raw" href="#pyxtream.pyxtream.Episode.raw">raw</a></code></li>
+<li><code><a title="pyxtream.pyxtream.Episode.title" href="#pyxtream.pyxtream.Episode.title">title</a></code></li>
+</ul>
 </li>
 <li>
 <h4><code><a title="pyxtream.pyxtream.Group" href="#pyxtream.pyxtream.Group">Group</a></code></h4>
+<ul class="">
+<li><code><a title="pyxtream.pyxtream.Group.convert_region_shortname_to_fullname" href="#pyxtream.pyxtream.Group.convert_region_shortname_to_fullname">convert_region_shortname_to_fullname</a></code></li>
+<li><code><a title="pyxtream.pyxtream.Group.group_id" href="#pyxtream.pyxtream.Group.group_id">group_id</a></code></li>
+<li><code><a title="pyxtream.pyxtream.Group.group_type" href="#pyxtream.pyxtream.Group.group_type">group_type</a></code></li>
+<li><code><a title="pyxtream.pyxtream.Group.name" href="#pyxtream.pyxtream.Group.name">name</a></code></li>
+<li><code><a title="pyxtream.pyxtream.Group.raw" href="#pyxtream.pyxtream.Group.raw">raw</a></code></li>
+</ul>
 </li>
 <li>
 <h4><code><a title="pyxtream.pyxtream.Season" href="#pyxtream.pyxtream.Season">Season</a></code></h4>
+<ul class="">
+<li><code><a title="pyxtream.pyxtream.Season.name" href="#pyxtream.pyxtream.Season.name">name</a></code></li>
+</ul>
 </li>
 <li>
 <h4><code><a title="pyxtream.pyxtream.Serie" href="#pyxtream.pyxtream.Serie">Serie</a></code></h4>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="pyxtream.pyxtream.Serie.export_json" href="#pyxtream.pyxtream.Serie.export_json">export_json</a></code></li>
+<li><code><a title="pyxtream.pyxtream.Serie.genre" href="#pyxtream.pyxtream.Serie.genre">genre</a></code></li>
+<li><code><a title="pyxtream.pyxtream.Serie.logo" href="#pyxtream.pyxtream.Serie.logo">logo</a></code></li>
+<li><code><a title="pyxtream.pyxtream.Serie.logo_path" href="#pyxtream.pyxtream.Serie.logo_path">logo_path</a></code></li>
+<li><code><a title="pyxtream.pyxtream.Serie.name" href="#pyxtream.pyxtream.Serie.name">name</a></code></li>
+<li><code><a title="pyxtream.pyxtream.Serie.plot" href="#pyxtream.pyxtream.Serie.plot">plot</a></code></li>
+<li><code><a title="pyxtream.pyxtream.Serie.raw" href="#pyxtream.pyxtream.Serie.raw">raw</a></code></li>
+<li><code><a title="pyxtream.pyxtream.Serie.series_id" href="#pyxtream.pyxtream.Serie.series_id">series_id</a></code></li>
+<li><code><a title="pyxtream.pyxtream.Serie.youtube_trailer" href="#pyxtream.pyxtream.Serie.youtube_trailer">youtube_trailer</a></code></li>
 </ul>
 </li>
 <li>
@@ -3004,6 +3366,7 @@ and converts spaces to hyphens.</p>
 <li><code><a title="pyxtream.pyxtream.XTream.slugify" href="#pyxtream.pyxtream.XTream.slugify">slugify</a></code></li>
 <li><code><a title="pyxtream.pyxtream.XTream.streams" href="#pyxtream.pyxtream.XTream.streams">streams</a></code></li>
 <li><code><a title="pyxtream.pyxtream.XTream.streamsByCategory" href="#pyxtream.pyxtream.XTream.streamsByCategory">streamsByCategory</a></code></li>
+<li><code><a title="pyxtream.pyxtream.XTream.threshold_time_sec" href="#pyxtream.pyxtream.XTream.threshold_time_sec">threshold_time_sec</a></code></li>
 <li><code><a title="pyxtream.pyxtream.XTream.username" href="#pyxtream.pyxtream.XTream.username">username</a></code></li>
 <li><code><a title="pyxtream.pyxtream.XTream.validateURL" href="#pyxtream.pyxtream.XTream.validateURL">validateURL</a></code></li>
 <li><code><a title="pyxtream.pyxtream.XTream.vodInfoByID" href="#pyxtream.pyxtream.XTream.vodInfoByID">vodInfoByID</a></code></li>

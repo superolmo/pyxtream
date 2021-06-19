@@ -1,6 +1,6 @@
 # PyXtream - A Python Xtream Loader
 
-PyXtream loads the xtream IPTV content from a provider server. Groups, Channels, Series are all organized in dictionaries. Season and Episodes are retrieved as needed. It includes functions for searching streams and downloading. In this latest version 0.2.0, an optional primitive REST Api allows to search and initiate downloads from a browser.
+PyXtream loads the xtream IPTV content from a provider server. Groups, Channels, Series are all organized in dictionaries. Season and Episodes are retrieved as needed. It includes functions for searching streams and downloading.
 
 This library was originally designed to work with Hypnotix at https://github.com/linuxmint/hypnotix
 
