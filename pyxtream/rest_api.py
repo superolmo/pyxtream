@@ -8,6 +8,8 @@ try:
 except:
     pass
 
+from os import path
+
 class EndpointAction(object):
 
     def __init__(self, action, function_name):
@@ -15,16 +17,22 @@ class EndpointAction(object):
         self.action = action
 
     def __call__(self, **args):
-        
+
         if args != {}:
+
+            #Stream Search
             if self.function_name == "stream_search":
                 regex_term = r"^.*{}.*$".format(args['term'])
-                answer = self.action(regex_term,'JSON')
+                answer = self.action(regex_term,  return_type = 'JSON')
+
+            # Download stream
             elif self.function_name == "download_stream":
                 answer = self.action(int(args['stream_id']))
+
             else:
                 print(args)
                 answer = "Hello"
+
             self.response = FlaskResponse(answer, status=200, headers={})
             self.response.headers["Content-Type"] = "text/json; charset=utf-8"
         else:
@@ -40,7 +48,7 @@ class FlaskWrap(Thread):
 <!DOCTYPE html><html lang="en"><head></head><body>pyxtream API</body></html>
     """
 
-    def __init__(self, name, xtream: object, home_html_template: str = None):
+    def __init__(self, name, xtream: object, html_template_folder: str = None):
 
         import logging
         log = logging.getLogger('werkzeug')
@@ -55,8 +63,11 @@ class FlaskWrap(Thread):
         self.daemon = True
 
         # Load HTML Home Template if any
-        if home_html_template != None:
-            self.home_template = home_html_template
+        if html_template_folder != None:
+            self.home_template_file_name = path.join(html_template_folder,"index.html")
+            if path.isfile(self.home_template_file_name):
+                with open(self.home_template_file_name,'r') as home_html:
+                    self.home_template = home_html.read()
 
         # Add all endpoints
         self.add_endpoint(endpoint='/', endpoint_name='home', handler=[self.home_template,""])

@@ -8,6 +8,9 @@ import sys
 from time import sleep
 import json
 
+if url == "" or username == "" or password == "":
+    sys.exit()
+
 def str2list(commands: str) -> list:
 
     """Convert a string with comma delimited numbers into a python list of integers
@@ -34,6 +37,9 @@ def str2list(commands: str) -> list:
 
 # Initialize pyxtream
 from pyxtream import XTream
+from pyxtream import __version__
+
+print("pyxtream version {}".format(__version__))
 
 xt = XTream("YourProvider", username, password, url)
 
