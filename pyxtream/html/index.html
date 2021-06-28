@@ -162,8 +162,19 @@
         // Attached event
         $("#search_results").on('click', 'button.play_movie', function () {
             movie_url = $(this).attr("movie_url");
-            var myPlayer = videojs('video_player_id');
-            myPlayer.src({ type: 'video/mp4', src: movie_url });
+            var myPlayer = videojs('video_player_id', {liveui: true});
+            myPlayer.aspectRatio('16:9');
+            myPlayer.fluid(true);
+            
+            var re = /(?:\.([^.]+))?$/;
+            var file_ext = re.exec(movie_url)[1].toLowerCase();
+            if (file_ext == "mp4") {
+                mime_type = "video/mp4";
+            }
+            if (file_ext == "mkv") {
+                mime_type = "video/webm";
+            }
+            myPlayer.src({ type: mime_type, src: movie_url });
         });
     });
 </script>

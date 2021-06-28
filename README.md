@@ -37,7 +37,7 @@ else:
 Once completed, all the data can be found in xTream.groups, xTream.channels, xTream.movies, xTream.series. Series do not contains the information for all the Seasons and Episodes. Those are loaded separately when needed by calling the following function using a Series object from xTream.series array of dictionaries.
 
 ```python
-xt.getSeriesInfoByID(series_obj)
+xt.get_series_info_by_id(series_obj)
 ```
 
 At this point, the series_obj will have both Seasons and Episodes populated.
@@ -80,7 +80,7 @@ xTream.movies[{},{},...]
 
 ## Functions:
 
-XTream.getSeriesInfoByID
+XTream.get_series_info_by_id
 
 xTream.search_stream
 
@@ -96,6 +96,7 @@ xTream.load_iptv
 
 | Date | Version | Description |
 | ----------- | -----| ----------- |
+| 2021-06-19 | 0.4.0 | - Updated to follow PEP8<br>- Updated Docstrings |
 | 2021-06-19 | 0.3.0 | - Added enhanced Home Page with Search Button and Player<br>- Added case insensitive search<br>- Improved handling of provider missing fields |
 | 2021-06-11 | 0.2.1 | - Fixed bug in the way it reload from cache |
 | 2021-06-08 | 0.2.0 | - Added searching<br>- Added video download<br>- Added REST Api<br>- Fixed cache-path issue |
