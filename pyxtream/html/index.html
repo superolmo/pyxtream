@@ -5,176 +5,253 @@
     <!-- Required meta tags -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>PyXtream Viewer</title>
     <!-- Add icon library -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css"
-        integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l" crossorigin="anonymous">
-    <link href="https://vjs.zencdn.net/7.11.4/video-js.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"></script>
+    <link href="https://unpkg.com/video.js@7/dist/video-js.min.css" rel="stylesheet" />
+    <link href="https://unpkg.com/@videojs/themes@1/dist/city/index.css" rel="stylesheet" />
+    <script src="https://vjs.zencdn.net/7.17.0/video.min.js"></script>
 </head>
 
 <body>
-    <header>
-        <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
+    <nav class="navbar navbar-expand-md navbar-dark sticky-top bg-dark">
+        <div class="container">
             <a class="navbar-brand" href="#">PyXtream</a>
-            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarCollapse"
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse"
                 aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            <div class="collapse navbar-collapse" id="navbarCollapse">
-                <ul class="navbar-nav mr-auto">
-                    <li class="nav-item active">
-                        <a class="nav-link" href="#">Home <span class="sr-only">(current)</span></a>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#">Home</a>
                     </li>
                 </ul>
-                <div class="form-inline mt-2 mt-md-0" id="search_form">
-                    <input class="form-control mr-sm-2" type="text" placeholder="Search" aria-label="Search"
-                        id="searchString_INPUT">
-                    <button class="btn btn-outline-success my-2 my-sm-0" type="button"
-                        id="searchString_BTN">Search</button>
+                <div class="d-flex">
+                    <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search" id="searchString_INPUT">
+                    <button class="btn btn-outline-success" type="button" id="searchString_BTN">Search</button>
                 </div>
             </div>
-        </nav>
-    </header>
-    <main role="main">
-        <div class="container">
-            <div class="row">
-                <div id="search_results">
+        </div>
+    </nav>
+    <main>
+        <div class="album py-3">
+            <div class="container" id="search_results">
 
-                </div>
             </div>
-            <div class="row">
-                <video id="video_player_id" class="video-js" data-setup='{"controls": true}'>
-                </video>
+        </div>
+        <div class="modal" id="myModal" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-body">
+                        <video id="video_player_id" class="video-js"></video>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
 </body>
 
 </html>
-<script src="https://code.jquery.com/jquery-3.5.1.min.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"
-    integrity="sha384-Piv4xVNRyMGpqkS2by6br4gNJ7DXjqk09RmUpJ8jgGtD7zP9yug3goQfGII0yAns"
-    crossorigin="anonymous"></script>
-<script src="https://vjs.zencdn.net/7.11.4/video.min.js"></script>
-<script lang="javascript">
-    var html_card = `
-    <div class="card"><div class="card-header" id="stream_title"></div>
-    <div class="embed-responsive embed-responsive-4by3">
+<script>
+var html_card = `
+<div class="card shadow-sm col-md-3">
+    <div class="embed-responsive">
         <img class="card-img-top" src="" alt="Stream Poster">
     </div>
-        <div class="card-body">
-            <button class="btn btn-dark btn-lg btn-block play_movie"><i class="fa fa-play-circle"></i> Play Movie</button>
-            <p class="card-text"></p>
-        </div>
-    </div>`;
-    function shortToLongLanguage(short) {
-        ret_value = "";
-        switch (short) {
-            case "EN":
-                ret_value = "English";
-                break;
-            case "IT":
-                ret_value = "Italian";
-                break;
-            case "AR":
-                ret_value = "Arabic";
-                break;
-            case "ES":
-                ret_value = "Spanish";
-                break;
-            case "FR":
-                ret_value = "French";
-                break;
-            default:
-                ret_value = short;
+    <div class="card-body text-center">
+        <h5 class="card-title" id="stream_title"></h5>
+        <p class="card-text"></p>
+    </div>
+    <div class="card-footer">
+        <button class="btn btn-dark btn-lg btn-block text-nowrap play_movie" id="play_video_btn">
+            <i class="bi bi-play-circle"></i> Play Movie
+        </button>
+    </div>
+</div>`;
+
+/**
+ * Changes a abbreviated name of a country or region and returns the longer
+ * version
+ * @param {string} short Abbreviated name of a country or region
+ * @returns Long name of the country or region
+ */
+function shortToLongLanguage(short) {
+    ret_value = "";
+    switch (short) {
+        case "EN":
+            ret_value = "English";
+            break;
+        case "IT":
+            ret_value = "Italian";
+            break;
+        case "AR":
+            ret_value = "Arabic";
+            break;
+        case "ES":
+            ret_value = "Spanish";
+            break;
+        case "FR":
+            ret_value = "French";
+            break;
+        default:
+            ret_value = short;
+    }
+    return ret_value;
+};
+
+/**
+ * Cleans up an HTML card
+ * TODO: Delete this
+ * @param {string} html Card in HTML format
+ * @returns String
+ */
+function htmlToElement(html) {
+    var template = document.createElement('template');
+    template.innerHTML = html.trim();
+    return template.content.firstChild;
+}
+
+/**
+ * 
+ * @param {string} item JSON string contining the data for one stream
+ * @returns string with the formatted HTML card for the stream
+ */
+function buildCard(item)
+{
+    var card = htmlToElement(html_card);
+    /* Get all the card content from item object */
+    var stream_icon = item.stream_icon;
+    var is_adult = (item.is_adult == "1");
+    var stream_name = item.name.split("|");
+    if (stream_name.length > 1) {
+        var stream_title = stream_name[1].trim();
+        var stream_language = shortToLongLanguage(stream_name[0].trim());
+    } else {
+        var stream_title = stream_name[0].trim();
+        var stream_language = ""
+    }
+    var stream_extension = item.container_extension;
+    var stream_url = item.url;
+    var stream_type = item.stream_type;
+
+    if (stream_icon == null)
+        stream_icon = "";
+
+    /* Set the card content */
+    if (stream_icon != "") {
+        card.querySelector('.card-img-top').setAttribute("src", stream_icon);
+    } else {
+        card.querySelector('.embed-responsive').innerHTML = "";
+    }
+    card.querySelector("#stream_title").innerHTML = stream_title;
+    
+    card.querySelector('.play_movie').setAttribute("movie_url", stream_url);
+    card.querySelector('.play_movie').setAttribute("movie_extension", stream_extension);
+    card.querySelector('.card-text').innerHTML = stream_language + " - " + stream_type;
+
+    if (is_adult)
+    {
+        card.classList.add("border-danger");
+        card.querySelector(".card-body").classList.add("text-danger");
+    }
+
+    return card;
+}
+
+/**
+ * Send search string to server, get the result, and prepare output in search_result element
+ * @param {string} search_string String to find in the stream
+ */
+async function fetchSearchResults(search_string)
+{
+    const response = await fetch("http://localhost:5000/stream_search/" + document.getElementById("searchString_INPUT").value);
+    const data = await response.json();
+    
+    var search_results = document.getElementById("search_results");
+
+    search_results.innerHTML = "";
+
+    search_results.innerHTML = "<div class='row row-cols-1 row-cols-md-2 g-4'></div>"
+    var search_results_row = search_results.firstChild;
+
+    number_of_records = data.length;
+    maximum_records_to_display = 25;
+    current_record_index = 0;
+
+    console.log("Found " + number_of_records + " streams. Showing only " + maximum_records_to_display + " records");
+
+    /* For every result stream, prepare and add a card to the search result div*/
+    data.every(item => {
+        current_record_index++;
+        if (current_record_index < maximum_records_to_display)
+        {
+            new_card = buildCard(item);
+            search_results_row.appendChild(new_card);
+            return true;
         }
-        return ret_value;
-    };
+        return false;
+    });
 
-    function search_stream(search_string) {
-        $.ajax({
-            dataType: "json",
-            url: "http://localhost:5000/stream_search/" + search_string,
-            success: function (result) {
-                // For every result, add a new card
-                $.each(result, function (index, item) {
+    /* After adding cards, I can attached the play movie event to all the cards */
+    search_results.addEventListener('click', play_video);
+}
 
-                    var cards = $("<div>").html(html_card);
-                    cards.addClass("col-md-3");
-                    var stream_icon = item.stream_icon;
-                    var is_adult = item.is_adult;
-                    var stream_name = item.name.split("|");
-                    if (stream_name.length > 1) {
-                        var stream_title = stream_name[1].trim();
-                        var stream_language = shortToLongLanguage(stream_name[0].trim());
-                    } else {
-                        var stream_title = stream_name[0].trim();
-                        var stream_language = ""
-                    }
-                    var stream_url = item.url;
-                    var stream_type = item.stream_type;
-                    //add values inside divs
-                    if (stream_icon != "") {
-                        $(cards).find(".card-img-top").attr("src", stream_icon);
-                    } else {
-                        $(cards).find(".embed-responsive").html("");
-                    }
-                    $(cards).find("#stream_title").html(stream_title);
-                    $(cards).find(".play_movie").attr("movie_url", stream_url);
-                    $(cards).find(".card-text").html(stream_language + " - " + stream_type);
-                    m = (index % 4);
-                    if (m === 0 || index == 0) {
-                        //Add Row and data
-                        row_div = $("<div>");
-                        row_div.addClass("row");
-                        $(cards).appendTo(row_div);
-                        // append to search results container the new row
-                        $(row_div).appendTo($("#search_results"));
-                    }
-                    else {
-                        //Add column data
-                        $(cards).appendTo($("#search_results").find(".row:last")); //append to existing row
-                    }
-                });
-            }
-        });
-    };
+/**
+ * Detects keycode ENTER for running search
+ * @param {event} e Element Event
+ */
+function logKey(event) {
+    var keycode = (event.keyCode ? event.keyCode : event.which);
+    if (keycode == '13') {
+        document.getElementById("searchString_BTN").click();
+    }
+    event.stopImmediatePropagation();
+};
 
-    function clear_cards() {
-        $("#search_results").html("");
-    };
+/**
+ * Get the stream URL from element and pass it to video player
+ * @param {event} event Element event
+ */
+function play_video(event) {
 
-    $(function () {
-        //hide first div or remove after append using `$(".card:first").remove()`
-        //$(".card:first").hide();
-        $("#searchString_BTN").click(function () {
-            clear_cards();
-            search_stream($("#searchString_INPUT").val());
-        });
-        $("#searchString_INPUT").keypress(function (event) {
-            var keycode = (event.keyCode ? event.keyCode : event.which);
-            if (keycode == '13') {
-                $("#searchString_BTN").click();
-            }
-            event.stopPropagation();
-        });
+    if (event.target.nodeName == 'BUTTON')
+    {
+        var movie_url = event.target.attributes.movie_url.value;
+        var movie_extension = event.target.attributes.movie_extension.value;
+        var allowed_extensions = ["mp4", "mkv"];
 
-        // Attached event
-        $("#search_results").on('click', 'button.play_movie', function () {
-            movie_url = $(this).attr("movie_url");
-            var myPlayer = videojs('video_player_id', {liveui: true});
+        if (allowed_extensions.includes(movie_extension))
+        {
+            var myPlayer = videojs('video_player_id', {liveui: true, controls: true, autoplay: true});
             myPlayer.aspectRatio('16:9');
             myPlayer.fluid(true);
             
-            var re = /(?:\.([^.]+))?$/;
-            var file_ext = re.exec(movie_url)[1].toLowerCase();
-            if (file_ext == "mp4") {
+            if (movie_extension == "mp4") {
                 mime_type = "video/mp4";
             }
-            if (file_ext == "mkv") {
+            else if (movie_extension == "mkv") {
                 mime_type = "video/webm";
             }
             myPlayer.src({ type: mime_type, src: movie_url });
-        });
-    });
+            document.getElementById('myModal').addEventListener('hidden.bs.modal', function (event) {
+                videojs.players.video_player_id.pause()
+            })
+
+            var myVideoModal = new bootstrap.Modal(document.getElementById('myModal'));
+            myVideoModal.show();
+        }
+        else
+        {
+            console.log("Video type not supported `" + movie_extension + '`');
+            console.log("Video URL: `" + movie_url + "`")
+        }
+    }
+}
+
+/* Setup event handlers */
+document.getElementById("searchString_INPUT").addEventListener('keypress', logKey);
+document.getElementById("searchString_BTN").addEventListener('click', fetchSearchResults);
+
 </script>

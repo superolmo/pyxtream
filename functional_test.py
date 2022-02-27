@@ -9,6 +9,7 @@ from time import sleep
 import json
 
 if url == "" or username == "" or password == "":
+    print("Please edit this file with the provider credentials")
     sys.exit()
 
 def str2list(commands: str) -> list:
@@ -46,7 +47,9 @@ xt = XTream("YourProvider", username, password, url)
 sleep(0.5)
 
 # If we could not connect, exit
-if xt.authData == {}:
+if xt.auth_data == {}:
+    print("Authentication failed")
+    sleep(0.5)
     sys.exit(0)
 
 while True:

@@ -52,21 +52,33 @@ Please modify the functional_test.py file with your provider information, then s
 python3 functional_test.py
 ```
 
+The functional test will allow you to authenticate on startup, load and search streams. If Flask is installed, a simple website will be available at http://localhost:5000 to allow you to search and play streams.
+
+### Interesting Work by somebody else 
+
+So far there is no ready to use Transport Stream library for playing live stream.
+
+- This is the library to convert TS to MP4
+  - https://github.com/videojs/mux.js/
+
+- More on above, but same problem. XMLHttpRequest waits until the whole TS file is completely loaded. It does not work for live video streams
+  - https://developpaper.com/play-ts-video-directly-on-the-web/
+
+- This below will allow me to process chunks of data
+  - https://stackoverflow.com/questions/37402716/handle-xmlhttprequest-response-with-large-data
+
+
 # API
 
 ## Classes:
 
 Below are the classes used in the module. They are heavily influenced by the application Hypnotix.
 
-XTream.Groups
-
-XTream.Channels
-
-XTream.Series
-
-XTream.Season
-
-XTream.Episode
+- XTream.Channels
+- XTream.Groups
+- XTream.Episode
+- XTream.Series
+- XTream.Season
 
 ## Dictionaries (Array of dictionaries):
 
@@ -80,22 +92,27 @@ xTream.movies[{},{},...]
 
 ## Functions:
 
-XTream.get_series_info_by_id
+- xTream.authenticate()
+- xTream.load_iptv()
+- XTream.get_series_info_by_id(get_series: dict)
+- xTream.search_stream(keyword: str, ignore_case: bool = True, return_type: str = "LIST")
+- xTream.download_video(stream_id: int)
+- xTream.vodInfoByID(vod_id)
+- xTream.liveEpgByStream(stream_id)
+- xTream.liveEpgByStreamAndLimit(stream_id, limit)
+- xTream.allLiveEpgByStream(stream_id)
+- xTream.allEpg()
 
-xTream.search_stream
-
-xTream.download_video
-
-xTream.download_video_impl
-
-xTream.authenticate
-
-xTream.load_iptv
+# Versioning
+- Increment the MAJOR version when you make incompatible API changes.
+- Increment the MINOR version when you add functionality in a backwards-compatible manner.
+- Increment the PATCH version when you make backwards-compatible bug fixes.
 
 # Change Log
 
 | Date | Version | Description |
 | ----------- | -----| ----------- |
+| 2021-08-19 | 0.5.0 | - Added method to gracefully handle connection errors<br>- Added setting to not load adult content<br>- Added sorting by stream name<br>- Changed the handling of special characters in streams<br>- Changed print formatting<br>- Changed index.html webpage to HTML5 and Bootstrap 5|
 | 2021-06-19 | 0.4.0 | - Updated to follow PEP8<br>- Updated Docstrings |
 | 2021-06-19 | 0.3.0 | - Added enhanced Home Page with Search Button and Player<br>- Added case insensitive search<br>- Improved handling of provider missing fields |
 | 2021-06-11 | 0.2.1 | - Fixed bug in the way it reload from cache |
