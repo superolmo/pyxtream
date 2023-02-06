@@ -112,6 +112,7 @@ xTream.movies[{},{},...]
 
 | Date | Version | Description |
 | ----------- | -----| ----------- |
+| 2023-02-06 | 0.6.0 | - Added methods to change connection header, to turn off reload timer, and to enable/disable Flask debug mode<br>- Added a loop when attempting to connect to the provider <br>- Cleaned up some print lines|
 | 2021-08-19 | 0.5.0 | - Added method to gracefully handle connection errors<br>- Added setting to not load adult content<br>- Added sorting by stream name<br>- Changed the handling of special characters in streams<br>- Changed print formatting<br>- Changed index.html webpage to HTML5 and Bootstrap 5|
 | 2021-06-19 | 0.4.0 | - Updated to follow PEP8<br>- Updated Docstrings |
 | 2021-06-19 | 0.3.0 | - Added enhanced Home Page with Search Button and Player<br>- Added case insensitive search<br>- Improved handling of provider missing fields |

@@ -2,22 +2,20 @@
 python3 setup.py sdist bdist_wheel
 
 # Upload to PYPI
-twine upload dist/*
+twine upload dist/pyxtream-0.7*
 
-# Local Install
-python3 -m pip install dist/pyxtream-0.1-py3-none-any.whl
+# Optional Local Install
+python3 -m pip install dist/pyxtream-0.7
+
+# GitHub Documentation
+
+## Build docs
+pdoc --html pyxtream/ --force
+mv html/pyxtream/*.html doc
+rm -rf html
 
 # Record TS Video
 ffmpeg -y -i "(iptv url)" -c:v copy -c:a copy  -map 0:v -map 0:a -t 00:00:30 "myrecording.ts" >"mylog.log" 2>&1
-
-# TODO
-
-- Add REST API for communicating with xtream module and server
-- Record and Download streams
-
-# Documentation
-
-pdoc --html pyxtream/ --force
 
 # Versioning
 

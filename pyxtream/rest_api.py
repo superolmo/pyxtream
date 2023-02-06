@@ -48,11 +48,18 @@ class FlaskWrap(Thread):
 <!DOCTYPE html><html lang="en"><head></head><body>pyxtream API</body></html>
     """
 
-    def __init__(self, name, xtream: object, html_template_folder: str = None):
+    host: str = ""
+    port: int = 0
+
+    def __init__(self, name, xtream: object, html_template_folder: str = None, host: str = "0.0.0.0", port: int = 5000, debug: bool = True):
 
         import logging
         log = logging.getLogger('werkzeug')
         log.setLevel(logging.ERROR)
+
+        self.host = host
+        self.port = port
+        self.debug = debug
 
         self.app = Flask(name)
         self.xt = xtream
@@ -75,7 +82,7 @@ class FlaskWrap(Thread):
         self.add_endpoint(endpoint='/download_stream/<stream_id>/', endpoint_name='download_stream', handler=[self.xt.download_video,"download_stream"])
 
     def run(self):
-        self.app.run(debug=True, use_reloader=False)
+        self.app.run(debug=self.debug, use_reloader=False, host=self.host, port=self.port)
 
     def add_endpoint(self, endpoint=None, endpoint_name=None, handler=None):
         self.app.add_url_rule(endpoint, endpoint_name, EndpointAction(*handler))

@@ -15,23 +15,13 @@
 </head>
 
 <body>
-    <nav class="navbar navbar-expand-md navbar-dark sticky-top bg-dark">
+    <nav class="navbar navbar-expand navbar-dark sticky-top bg-dark">
         <div class="container">
             <a class="navbar-brand" href="#">PyXtream</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse"
-                aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item">
-                        <a class="nav-link active" href="#">Home</a>
-                    </li>
-                </ul>
-                <div class="d-flex">
-                    <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search" id="searchString_INPUT">
-                    <button class="btn btn-outline-success" type="button" id="searchString_BTN">Search</button>
-                </div>
+            <div class="d-flex">
+                <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search" id="searchString_INPUT"
+                style="width: 150px;">
+                <button class="btn btn-outline-success" type="button" id="searchString_BTN">Search</button>
             </div>
         </div>
     </nav>
@@ -56,20 +46,24 @@
 </html>
 <script>
 var html_card = `
-<div class="card shadow-sm col-md-3">
-    <div class="embed-responsive">
-        <img class="card-img-top" src="" alt="Stream Poster">
+    <div class="card">
+        <div class="face front">
+            <div class="embed-responsive">
+                <img class="card-img-top" src="" alt="Stream Poster">
+            </div>
+            <div class="card-body text-center">
+                <h5 class="card-title" id="stream_title"></h5>
+                <p class="card-text"></p>
+            </div>
+            <div class="card-footer">
+                <button class="btn btn-dark btn-lg btn-block text-nowrap play_movie" 
+                        id="play_video_btn" data-bs-toggle="tooltip" title="">
+                    <i class="bi bi-play-circle"></i> Play Movie
+                </button>
+            </div>
+        </div>
     </div>
-    <div class="card-body text-center">
-        <h5 class="card-title" id="stream_title"></h5>
-        <p class="card-text"></p>
-    </div>
-    <div class="card-footer">
-        <button class="btn btn-dark btn-lg btn-block text-nowrap play_movie" id="play_video_btn">
-            <i class="bi bi-play-circle"></i> Play Movie
-        </button>
-    </div>
-</div>`;
+`;
 
 /**
  * Changes a abbreviated name of a country or region and returns the longer
@@ -110,7 +104,7 @@ function shortToLongLanguage(short) {
 function htmlToElement(html) {
     var template = document.createElement('template');
     template.innerHTML = html.trim();
-    return template.content.firstChild;
+    return template.content; //.firstChild;
 }
 
 /**
@@ -121,7 +115,10 @@ function htmlToElement(html) {
 function buildCard(item)
 {
     var card = htmlToElement(html_card);
+    var card_front = card.querySelector('.front');
+    var card_back = card.querySelector('.back');
     /* Get all the card content from item object */
+    var stream_id = item.stream_id;
     var stream_icon = item.stream_icon;
     var is_adult = (item.is_adult == "1");
     var stream_name = item.name.split("|");
@@ -141,20 +138,20 @@ function buildCard(item)
 
     /* Set the card content */
     if (stream_icon != "") {
-        card.querySelector('.card-img-top').setAttribute("src", stream_icon);
+        card_front.querySelector('.card-img-top').setAttribute("src", stream_icon);
     } else {
-        card.querySelector('.embed-responsive').innerHTML = "";
+        card_front.querySelector('.embed-responsive').innerHTML = "";
     }
-    card.querySelector("#stream_title").innerHTML = stream_title;
+    card_front.querySelector("#stream_title").innerHTML = stream_title;
     
-    card.querySelector('.play_movie').setAttribute("movie_url", stream_url);
-    card.querySelector('.play_movie').setAttribute("movie_extension", stream_extension);
-    card.querySelector('.card-text').innerHTML = stream_language + " - " + stream_type;
+    card_front.querySelector('.play_movie').setAttribute("movie_url", stream_url);
+    card_front.querySelector('.play_movie').setAttribute("movie_extension", stream_extension);
+    card_front.querySelector('.card-text').innerHTML = "[" + stream_language + "]-[" + stream_type + "]-ID:[" + stream_id + "]";
 
     if (is_adult)
     {
-        card.classList.add("border-danger");
-        card.querySelector(".card-body").classList.add("text-danger");
+        card_front.classList.add("border-danger");
+        card_front.querySelector(".card-body").classList.add("text-danger");
     }
 
     return card;
@@ -247,6 +244,17 @@ function play_video(event) {
             console.log("Video type not supported `" + movie_extension + '`');
             console.log("Video URL: `" + movie_url + "`")
         }
+    }
+    else
+    {
+        node = event.target
+        // Search for parent card
+        while(!node.classList.contains('card'))
+        {
+            node = node.parentNode;
+        }
+        // TODO: above will exit only when the card is found, not good
+        node.classList.toggle('is-flipped');
     }
 }
 

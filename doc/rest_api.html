@@ -75,11 +75,18 @@ class FlaskWrap(Thread):
 &lt;!DOCTYPE html&gt;&lt;html lang=&#34;en&#34;&gt;&lt;head&gt;&lt;/head&gt;&lt;body&gt;pyxtream API&lt;/body&gt;&lt;/html&gt;
     &#34;&#34;&#34;
 
-    def __init__(self, name, xtream: object, html_template_folder: str = None):
+    host: str = &#34;&#34;
+    port: int = 0
+
+    def __init__(self, name, xtream: object, html_template_folder: str = None, host: str = &#34;0.0.0.0&#34;, port: int = 5000, debug: bool = True):
 
         import logging
         log = logging.getLogger(&#39;werkzeug&#39;)
         log.setLevel(logging.ERROR)
+
+        self.host = host
+        self.port = port
+        self.debug = debug
 
         self.app = Flask(name)
         self.xt = xtream
@@ -102,7 +109,7 @@ class FlaskWrap(Thread):
         self.add_endpoint(endpoint=&#39;/download_stream/&lt;stream_id&gt;/&#39;, endpoint_name=&#39;download_stream&#39;, handler=[self.xt.download_video,&#34;download_stream&#34;])
 
     def run(self):
-        self.app.run(debug=True, use_reloader=False)
+        self.app.run(debug=self.debug, use_reloader=False, host=self.host, port=self.port)
 
     def add_endpoint(self, endpoint=None, endpoint_name=None, handler=None):
         self.app.add_url_rule(endpoint, endpoint_name, EndpointAction(*handler))</code></pre>
@@ -162,7 +169,7 @@ class FlaskWrap(Thread):
 </dd>
 <dt id="pyxtream.rest_api.FlaskWrap"><code class="flex name class">
 <span>class <span class="ident">FlaskWrap</span></span>
-<span>(</span><span>name, xtream: object, html_template_folder: str = None)</span>
+<span>(</span><span>name, xtream: object, html_template_folder: str = None, host: str = '0.0.0.0', port: int = 5000, debug: bool = True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A class that represents a thread of control.</p>
@@ -192,11 +199,18 @@ else to the thread.</p></div>
 &lt;!DOCTYPE html&gt;&lt;html lang=&#34;en&#34;&gt;&lt;head&gt;&lt;/head&gt;&lt;body&gt;pyxtream API&lt;/body&gt;&lt;/html&gt;
     &#34;&#34;&#34;
 
-    def __init__(self, name, xtream: object, html_template_folder: str = None):
+    host: str = &#34;&#34;
+    port: int = 0
+
+    def __init__(self, name, xtream: object, html_template_folder: str = None, host: str = &#34;0.0.0.0&#34;, port: int = 5000, debug: bool = True):
 
         import logging
         log = logging.getLogger(&#39;werkzeug&#39;)
         log.setLevel(logging.ERROR)
+
+        self.host = host
+        self.port = port
+        self.debug = debug
 
         self.app = Flask(name)
         self.xt = xtream
@@ -219,7 +233,7 @@ else to the thread.</p></div>
         self.add_endpoint(endpoint=&#39;/download_stream/&lt;stream_id&gt;/&#39;, endpoint_name=&#39;download_stream&#39;, handler=[self.xt.download_video,&#34;download_stream&#34;])
 
     def run(self):
-        self.app.run(debug=True, use_reloader=False)
+        self.app.run(debug=self.debug, use_reloader=False, host=self.host, port=self.port)
 
     def add_endpoint(self, endpoint=None, endpoint_name=None, handler=None):
         self.app.add_url_rule(endpoint, endpoint_name, EndpointAction(*handler))</code></pre>
@@ -231,6 +245,14 @@ else to the thread.</p></div>
 <h3>Class variables</h3>
 <dl>
 <dt id="pyxtream.rest_api.FlaskWrap.home_template"><code class="name">var <span class="ident">home_template</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="pyxtream.rest_api.FlaskWrap.host"><code class="name">var <span class="ident">host</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="pyxtream.rest_api.FlaskWrap.port"><code class="name">var <span class="ident">port</span> : int</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -264,7 +286,7 @@ from the args and kwargs arguments, respectively.</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def run(self):
-    self.app.run(debug=True, use_reloader=False)</code></pre>
+    self.app.run(debug=self.debug, use_reloader=False, host=self.host, port=self.port)</code></pre>
 </details>
 </dd>
 </dl>
@@ -293,6 +315,8 @@ from the args and kwargs arguments, respectively.</p></div>
 <ul class="">
 <li><code><a title="pyxtream.rest_api.FlaskWrap.add_endpoint" href="#pyxtream.rest_api.FlaskWrap.add_endpoint">add_endpoint</a></code></li>
 <li><code><a title="pyxtream.rest_api.FlaskWrap.home_template" href="#pyxtream.rest_api.FlaskWrap.home_template">home_template</a></code></li>
+<li><code><a title="pyxtream.rest_api.FlaskWrap.host" href="#pyxtream.rest_api.FlaskWrap.host">host</a></code></li>
+<li><code><a title="pyxtream.rest_api.FlaskWrap.port" href="#pyxtream.rest_api.FlaskWrap.port">port</a></code></li>
 <li><code><a title="pyxtream.rest_api.FlaskWrap.run" href="#pyxtream.rest_api.FlaskWrap.run">run</a></code></li>
 </ul>
 </li>

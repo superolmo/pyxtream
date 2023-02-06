@@ -325,6 +325,7 @@ class XTream():
 
     name = &#34;&#34;
     server = &#34;&#34;
+    secure_server = &#34;&#34;
     username = &#34;&#34;
     password = &#34;&#34;
 
@@ -340,6 +341,8 @@ class XTream():
     series = []
     movies = []
 
+    connection_headers = {}
+
     state = {&#39;authenticated&#39;: False, &#39;loaded&#39;: False}
 
     hide_adult_content = False
@@ -354,7 +357,7 @@ class XTream():
     )
     # If the cached JSON file is older than threshold_time_sec then load a new
     # JSON dictionary from the provider
-    threshold_time_sec = 60*60*8
+    threshold_time_sec = -1
 
     def __init__(self,
                 provider_name: str,
@@ -362,7 +365,9 @@ class XTream():
                 provider_password: str,
                 provider_url: str,
                 hide_adult_content: bool = False,
-                cache_path: str = &#34;&#34;
+                cache_path: str = &#34;&#34;,
+                reload_time_sec: int = 60*60*8,
+                debug_flask: bool = True
                 ):
         &#34;&#34;&#34;Initialize Xtream Class
 
@@ -373,6 +378,8 @@ class XTream():
             provider_url      (str):            URL of the IPTV provider
             hide_adult_content(bool):           When `True` hide stream that are marked for adult
             cache_path        (str, optional):  Location where to save loaded files. Defaults to empty string.
+            reload_time_sec   (int, optional):  Number of seconds before automatic reloading (-1 to turn it OFF)
+            debug_flask       (bool, optional): Enable the debug mode in Flask
 
         Returns: XTream Class Instance
 
@@ -386,6 +393,7 @@ class XTream():
         self.name = provider_name
         self.cache_path = cache_path
         self.hide_adult_content = hide_adult_content
+        self.threshold_time_sec = reload_time_sec
         
         # get the pyxtream local path
         self.app_fullpath = osp.dirname(osp.realpath(__file__))
@@ -407,11 +415,19 @@ class XTream():
                 makedirs(self.cache_path, exist_ok=True)
             print(&#34;pyxtream cache path located at {}&#34;.format(self.cache_path))
 
+        self.connection_headers = {&#39;User-Agent&#39;:&#34;Wget/1.20.3 (linux-gnu)&#34;}
+
         self.authenticate()
 
-        if USE_FLASK:
-            self.flaskapp = FlaskWrap(&#39;pyxtream&#39;, self, self.html_template_folder)
-            self.flaskapp.start()
+        if self.threshold_time_sec &gt; 0:
+            print(&#34;Reload timer is ON and set to {} seconds&#34;.format(self.threshold_time_sec))
+        else:
+            print(&#34;Reload timer is OFF&#34;)
+
+        if self.state[&#39;authenticated&#39;]:
+            if USE_FLASK:
+                self.flaskapp = FlaskWrap(&#39;pyxtream&#39;, self, self.html_template_folder, debug=debug_flask)
+                self.flaskapp.start()
 
     def search_stream(self, keyword: str, ignore_case: bool = True, return_type: str = &#34;LIST&#34;) -&gt; List:
         &#34;&#34;&#34;Search for streams
@@ -464,6 +480,7 @@ class XTream():
                 fn = &#34;{}.{}&#34;.format(self._slugify(stream.name),stream.raw[&#39;container_extension&#39;])
                 filename = osp.join(self.cache_path,fn)
 
+        # If the url was correctly built and file does not exists, start downloading
         if url != &#34;&#34;:
             if not osp.isfile(filename):
                 if not self._download_video_impl(url,filename):
@@ -487,7 +504,7 @@ class XTream():
             print(&#34;Downloading from URL `{}` and saving at `{}`&#34;.format(url,fullpath_filename))
             
             # Make the request to download
-            response = requests.get(url, timeout=(5), stream=True, allow_redirects=True)
+            response = requests.get(url, timeout=(5), stream=True, allow_redirects=True, headers=self.connection_headers)
             # If there is an answer from the remote server
             if response.status_code == 200:
                 # Get content type Binary or Text
@@ -583,9 +600,20 @@ class XTream():
         if (self.state[&#39;authenticated&#39;] == False):
             # Erase any previous data
             self.auth_data = {}
-            try:
-                # Request authentication, wait 4 seconds maximum
-                r = requests.get(self.get_authenticate_URL(), timeout=(4))
+            # Loop through 30 seconds
+            i = 0
+            r = None
+            while i &lt; 30:
+                try:
+                    # Request authentication, wait 4 seconds maximum
+                    r = requests.get(self.get_authenticate_URL(), timeout=(4), headers=self.connection_headers)
+                    i = 31
+                except requests.exceptions.ConnectionError:
+                    time.sleep(1)
+                    print(i)
+                    i += 1
+
+            if r != None:
                 # If the answer is ok, process data and change state
                 if r.ok:
                     self.auth_data = r.json()
@@ -594,12 +622,13 @@ class XTream():
                         &#34;password&#34;: self.auth_data[&#34;user_info&#34;][&#34;password&#34;]
                     }
                     self.state[&#39;authenticated&#39;] = True
+                    if &#34;https_port&#34; in self.auth_data[&#34;server_info&#34;]:
+                        self.secure_server = &#34;https://&#34; + self.auth_data[&#34;server_info&#34;][&#34;url&#34;] + &#34;:&#34; + self.auth_data[&#34;server_info&#34;][&#34;https_port&#34;]
                 else:
                     print(&#34;Provider `{}` could not be loaded. Reason: `{} {}`&#34;.format(self.name,r.status_code, r.reason))
-            except requests.exceptions.ConnectionError:
-                # If connection refused
-                print(&#34;{} - Connection refused URL: {}&#34;.format(self.name, self.server))
-
+            else:
+                print(&#34;Provider refused the connection&#34;)
+            
     def _load_from_file(self, filename) -&gt; dict:
         &#34;&#34;&#34;Try to load the dictionary from file
 
@@ -615,26 +644,33 @@ class XTream():
                 filename
         ))
 
+        # If the cached file exists, attempt to load it
         if osp.isfile(full_filename):
 
             my_data = None
 
             # Get the enlapsed seconds since last file update
-            diff_time = time.time() - osp.getmtime(full_filename)
-            # If the file was updated less than the threshold time,
-            # it means that the file is still fresh, we can load it.
-            # Otherwise skip and return None to force a re-download
-            if self.threshold_time_sec &gt; diff_time:
-                # Load the JSON data
-                try:
-                    with open(full_filename,mode=&#39;r&#39;,encoding=&#39;utf-8&#39;) as myfile:
-                        my_data = json.load(myfile)
-                        if len(my_data) == 0:
-                            my_data = None
-                except Exception as e:
-                    print(&#34; - Could not load from file `{}`: e=`{}`&#34;.format(
-                        full_filename, e
-                    ))
+            file_age_sec = time.time() - osp.getmtime(full_filename)
+
+            print(&#34;File Age: {:.0f} sec - &#34;.format(file_age_sec), end=&#39;&#39;)
+
+            # Load the JSON data
+            try:
+                with open(full_filename,mode=&#39;r&#39;,encoding=&#39;utf-8&#39;) as myfile:
+                    my_data = json.load(myfile)
+
+                    # If file empty, return None to force a reload
+                    if len(my_data) == 0:
+                        my_data = None
+            except Exception as e:
+                print(&#34; - Could not load from file `{}`: e=`{}`&#34;.format(
+                    full_filename, e
+                ))
+
+            # if reload is ON and file age is older than threshold, force update
+            if (self.threshold_time_sec &gt; 0) and (self.threshold_time_sec &lt; file_age_sec):
+                return None
+
             return my_data
         else:
             return None
@@ -709,7 +745,7 @@ class XTream():
 
                     # If we got the GROUPS data, show the statistics and load GROUPS
                     if all_cat != None:
-                        print(&#34;Loaded {} {} Groups in {:.3f} seconds&#34;.format(
+                        print(&#34;Loaded {:&gt;6} {} Groups  in {:.3f} seconds&#34;.format(
                             len(all_cat),loading_stream_type,dt
                         ))
                         ## Add GROUPS to dictionaries
@@ -748,7 +784,7 @@ class XTream():
 
                     # If we got the STREAMS data, show the statistics and load Streams
                     if all_streams != None:
-                        print(&#34;Loaded {} {} Streams in {:.3f} seconds&#34;.format(
+                        print(&#34;Loaded {:&gt;6} {} Streams in {:.3f} seconds&#34;.format(
                             len(all_streams),loading_stream_type,dt
                         ))
                         ## Add Streams to dictionaries
@@ -902,7 +938,7 @@ class XTream():
             [type]: JSON dictionary of the loaded data, or None
         &#34;&#34;&#34;
         try:
-            r = requests.get(URL,timeout=timeout)
+            r = requests.get(URL, timeout=timeout, headers=self.connection_headers)
             if r.status_code == 200:
                 return r.json()
 
@@ -915,8 +951,11 @@ class XTream():
         except requests.exceptions.TooManyRedirects:
             print(&#34; - TooManyRedirects&#34;)
 
-        except requests.exceptions.ReadTimeout as e:
+        except requests.exceptions.ReadTimeout:
             print(&#34; - Timeout while loading data&#34;)
+
+        except:
+            print(&#34;- Other Error&#34;)
 
         return None
 
@@ -1608,7 +1647,7 @@ class XTream():
 </dd>
 <dt id="pyxtream.pyxtream.XTream"><code class="flex name class">
 <span>class <span class="ident">XTream</span></span>
-<span>(</span><span>provider_name: str, provider_username: str, provider_password: str, provider_url: str, hide_adult_content: bool = False, cache_path: str = '')</span>
+<span>(</span><span>provider_name: str, provider_username: str, provider_password: str, provider_url: str, hide_adult_content: bool = False, cache_path: str = '', reload_time_sec: int = 28800, debug_flask: bool = True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Initialize Xtream Class</p>
@@ -1636,6 +1675,11 @@ When <code>True</code> hide stream that are marked for adult
 cache_path
 (str, optional):
 Location where to save loaded files. Defaults to empty string.
+reload_time_sec
+(int, optional):
+Number of seconds before automatic reloading (-1 to turn it OFF)
+debug_flask
+(bool, optional): Enable the debug mode in Flask
 Returns: XTream Class Instance</p>
 <ul>
 <li>Note: If it fails to authorize with provided username and password,
@@ -1649,6 +1693,7 @@ auth_data will be an empty dictionary.</li>
 
     name = &#34;&#34;
     server = &#34;&#34;
+    secure_server = &#34;&#34;
     username = &#34;&#34;
     password = &#34;&#34;
 
@@ -1664,6 +1709,8 @@ auth_data will be an empty dictionary.</li>
     series = []
     movies = []
 
+    connection_headers = {}
+
     state = {&#39;authenticated&#39;: False, &#39;loaded&#39;: False}
 
     hide_adult_content = False
@@ -1678,7 +1725,7 @@ auth_data will be an empty dictionary.</li>
     )
     # If the cached JSON file is older than threshold_time_sec then load a new
     # JSON dictionary from the provider
-    threshold_time_sec = 60*60*8
+    threshold_time_sec = -1
 
     def __init__(self,
                 provider_name: str,
@@ -1686,7 +1733,9 @@ auth_data will be an empty dictionary.</li>
                 provider_password: str,
                 provider_url: str,
                 hide_adult_content: bool = False,
-                cache_path: str = &#34;&#34;
+                cache_path: str = &#34;&#34;,
+                reload_time_sec: int = 60*60*8,
+                debug_flask: bool = True
                 ):
         &#34;&#34;&#34;Initialize Xtream Class
 
@@ -1697,6 +1746,8 @@ auth_data will be an empty dictionary.</li>
             provider_url      (str):            URL of the IPTV provider
             hide_adult_content(bool):           When `True` hide stream that are marked for adult
             cache_path        (str, optional):  Location where to save loaded files. Defaults to empty string.
+            reload_time_sec   (int, optional):  Number of seconds before automatic reloading (-1 to turn it OFF)
+            debug_flask       (bool, optional): Enable the debug mode in Flask
 
         Returns: XTream Class Instance
 
@@ -1710,6 +1761,7 @@ auth_data will be an empty dictionary.</li>
         self.name = provider_name
         self.cache_path = cache_path
         self.hide_adult_content = hide_adult_content
+        self.threshold_time_sec = reload_time_sec
         
         # get the pyxtream local path
         self.app_fullpath = osp.dirname(osp.realpath(__file__))
@@ -1731,11 +1783,19 @@ auth_data will be an empty dictionary.</li>
                 makedirs(self.cache_path, exist_ok=True)
             print(&#34;pyxtream cache path located at {}&#34;.format(self.cache_path))
 
+        self.connection_headers = {&#39;User-Agent&#39;:&#34;Wget/1.20.3 (linux-gnu)&#34;}
+
         self.authenticate()
 
-        if USE_FLASK:
-            self.flaskapp = FlaskWrap(&#39;pyxtream&#39;, self, self.html_template_folder)
-            self.flaskapp.start()
+        if self.threshold_time_sec &gt; 0:
+            print(&#34;Reload timer is ON and set to {} seconds&#34;.format(self.threshold_time_sec))
+        else:
+            print(&#34;Reload timer is OFF&#34;)
+
+        if self.state[&#39;authenticated&#39;]:
+            if USE_FLASK:
+                self.flaskapp = FlaskWrap(&#39;pyxtream&#39;, self, self.html_template_folder, debug=debug_flask)
+                self.flaskapp.start()
 
     def search_stream(self, keyword: str, ignore_case: bool = True, return_type: str = &#34;LIST&#34;) -&gt; List:
         &#34;&#34;&#34;Search for streams
@@ -1788,6 +1848,7 @@ auth_data will be an empty dictionary.</li>
                 fn = &#34;{}.{}&#34;.format(self._slugify(stream.name),stream.raw[&#39;container_extension&#39;])
                 filename = osp.join(self.cache_path,fn)
 
+        # If the url was correctly built and file does not exists, start downloading
         if url != &#34;&#34;:
             if not osp.isfile(filename):
                 if not self._download_video_impl(url,filename):
@@ -1811,7 +1872,7 @@ auth_data will be an empty dictionary.</li>
             print(&#34;Downloading from URL `{}` and saving at `{}`&#34;.format(url,fullpath_filename))
             
             # Make the request to download
-            response = requests.get(url, timeout=(5), stream=True, allow_redirects=True)
+            response = requests.get(url, timeout=(5), stream=True, allow_redirects=True, headers=self.connection_headers)
             # If there is an answer from the remote server
             if response.status_code == 200:
                 # Get content type Binary or Text
@@ -1907,9 +1968,20 @@ auth_data will be an empty dictionary.</li>
         if (self.state[&#39;authenticated&#39;] == False):
             # Erase any previous data
             self.auth_data = {}
-            try:
-                # Request authentication, wait 4 seconds maximum
-                r = requests.get(self.get_authenticate_URL(), timeout=(4))
+            # Loop through 30 seconds
+            i = 0
+            r = None
+            while i &lt; 30:
+                try:
+                    # Request authentication, wait 4 seconds maximum
+                    r = requests.get(self.get_authenticate_URL(), timeout=(4), headers=self.connection_headers)
+                    i = 31
+                except requests.exceptions.ConnectionError:
+                    time.sleep(1)
+                    print(i)
+                    i += 1
+
+            if r != None:
                 # If the answer is ok, process data and change state
                 if r.ok:
                     self.auth_data = r.json()
@@ -1918,12 +1990,13 @@ auth_data will be an empty dictionary.</li>
                         &#34;password&#34;: self.auth_data[&#34;user_info&#34;][&#34;password&#34;]
                     }
                     self.state[&#39;authenticated&#39;] = True
+                    if &#34;https_port&#34; in self.auth_data[&#34;server_info&#34;]:
+                        self.secure_server = &#34;https://&#34; + self.auth_data[&#34;server_info&#34;][&#34;url&#34;] + &#34;:&#34; + self.auth_data[&#34;server_info&#34;][&#34;https_port&#34;]
                 else:
                     print(&#34;Provider `{}` could not be loaded. Reason: `{} {}`&#34;.format(self.name,r.status_code, r.reason))
-            except requests.exceptions.ConnectionError:
-                # If connection refused
-                print(&#34;{} - Connection refused URL: {}&#34;.format(self.name, self.server))
-
+            else:
+                print(&#34;Provider refused the connection&#34;)
+            
     def _load_from_file(self, filename) -&gt; dict:
         &#34;&#34;&#34;Try to load the dictionary from file
 
@@ -1939,26 +2012,33 @@ auth_data will be an empty dictionary.</li>
                 filename
         ))
 
+        # If the cached file exists, attempt to load it
         if osp.isfile(full_filename):
 
             my_data = None
 
             # Get the enlapsed seconds since last file update
-            diff_time = time.time() - osp.getmtime(full_filename)
-            # If the file was updated less than the threshold time,
-            # it means that the file is still fresh, we can load it.
-            # Otherwise skip and return None to force a re-download
-            if self.threshold_time_sec &gt; diff_time:
-                # Load the JSON data
-                try:
-                    with open(full_filename,mode=&#39;r&#39;,encoding=&#39;utf-8&#39;) as myfile:
-                        my_data = json.load(myfile)
-                        if len(my_data) == 0:
-                            my_data = None
-                except Exception as e:
-                    print(&#34; - Could not load from file `{}`: e=`{}`&#34;.format(
-                        full_filename, e
-                    ))
+            file_age_sec = time.time() - osp.getmtime(full_filename)
+
+            print(&#34;File Age: {:.0f} sec - &#34;.format(file_age_sec), end=&#39;&#39;)
+
+            # Load the JSON data
+            try:
+                with open(full_filename,mode=&#39;r&#39;,encoding=&#39;utf-8&#39;) as myfile:
+                    my_data = json.load(myfile)
+
+                    # If file empty, return None to force a reload
+                    if len(my_data) == 0:
+                        my_data = None
+            except Exception as e:
+                print(&#34; - Could not load from file `{}`: e=`{}`&#34;.format(
+                    full_filename, e
+                ))
+
+            # if reload is ON and file age is older than threshold, force update
+            if (self.threshold_time_sec &gt; 0) and (self.threshold_time_sec &lt; file_age_sec):
+                return None
+
             return my_data
         else:
             return None
@@ -2033,7 +2113,7 @@ auth_data will be an empty dictionary.</li>
 
                     # If we got the GROUPS data, show the statistics and load GROUPS
                     if all_cat != None:
-                        print(&#34;Loaded {} {} Groups in {:.3f} seconds&#34;.format(
+                        print(&#34;Loaded {:&gt;6} {} Groups  in {:.3f} seconds&#34;.format(
                             len(all_cat),loading_stream_type,dt
                         ))
                         ## Add GROUPS to dictionaries
@@ -2072,7 +2152,7 @@ auth_data will be an empty dictionary.</li>
 
                     # If we got the STREAMS data, show the statistics and load Streams
                     if all_streams != None:
-                        print(&#34;Loaded {} {} Streams in {:.3f} seconds&#34;.format(
+                        print(&#34;Loaded {:&gt;6} {} Streams in {:.3f} seconds&#34;.format(
                             len(all_streams),loading_stream_type,dt
                         ))
                         ## Add Streams to dictionaries
@@ -2226,7 +2306,7 @@ auth_data will be an empty dictionary.</li>
             [type]: JSON dictionary of the loaded data, or None
         &#34;&#34;&#34;
         try:
-            r = requests.get(URL,timeout=timeout)
+            r = requests.get(URL, timeout=timeout, headers=self.connection_headers)
             if r.status_code == 200:
                 return r.json()
 
@@ -2239,8 +2319,11 @@ auth_data will be an empty dictionary.</li>
         except requests.exceptions.TooManyRedirects:
             print(&#34; - TooManyRedirects&#34;)
 
-        except requests.exceptions.ReadTimeout as e:
+        except requests.exceptions.ReadTimeout:
             print(&#34; - Timeout while loading data&#34;)
+
+        except:
+            print(&#34;- Other Error&#34;)
 
         return None
 
@@ -2436,6 +2519,10 @@ auth_data will be an empty dictionary.</li>
 <dd>
 <div class="desc"></div>
 </dd>
+<dt id="pyxtream.pyxtream.XTream.connection_headers"><code class="name">var <span class="ident">connection_headers</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="pyxtream.pyxtream.XTream.groups"><code class="name">var <span class="ident">groups</span></code></dt>
 <dd>
 <div class="desc"></div>
@@ -2457,6 +2544,10 @@ auth_data will be an empty dictionary.</li>
 <div class="desc"></div>
 </dd>
 <dt id="pyxtream.pyxtream.XTream.password"><code class="name">var <span class="ident">password</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="pyxtream.pyxtream.XTream.secure_server"><code class="name">var <span class="ident">secure_server</span></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -2533,9 +2624,20 @@ auth_data will be an empty dictionary.</li>
     if (self.state[&#39;authenticated&#39;] == False):
         # Erase any previous data
         self.auth_data = {}
-        try:
-            # Request authentication, wait 4 seconds maximum
-            r = requests.get(self.get_authenticate_URL(), timeout=(4))
+        # Loop through 30 seconds
+        i = 0
+        r = None
+        while i &lt; 30:
+            try:
+                # Request authentication, wait 4 seconds maximum
+                r = requests.get(self.get_authenticate_URL(), timeout=(4), headers=self.connection_headers)
+                i = 31
+            except requests.exceptions.ConnectionError:
+                time.sleep(1)
+                print(i)
+                i += 1
+
+        if r != None:
             # If the answer is ok, process data and change state
             if r.ok:
                 self.auth_data = r.json()
@@ -2544,11 +2646,12 @@ auth_data will be an empty dictionary.</li>
                     &#34;password&#34;: self.auth_data[&#34;user_info&#34;][&#34;password&#34;]
                 }
                 self.state[&#39;authenticated&#39;] = True
+                if &#34;https_port&#34; in self.auth_data[&#34;server_info&#34;]:
+                    self.secure_server = &#34;https://&#34; + self.auth_data[&#34;server_info&#34;][&#34;url&#34;] + &#34;:&#34; + self.auth_data[&#34;server_info&#34;][&#34;https_port&#34;]
             else:
                 print(&#34;Provider `{}` could not be loaded. Reason: `{} {}`&#34;.format(self.name,r.status_code, r.reason))
-        except requests.exceptions.ConnectionError:
-            # If connection refused
-            print(&#34;{} - Connection refused URL: {}&#34;.format(self.name, self.server))</code></pre>
+        else:
+            print(&#34;Provider refused the connection&#34;)</code></pre>
 </details>
 </dd>
 <dt id="pyxtream.pyxtream.XTream.download_video"><code class="name flex">
@@ -2570,6 +2673,7 @@ auth_data will be an empty dictionary.</li>
             fn = &#34;{}.{}&#34;.format(self._slugify(stream.name),stream.raw[&#39;container_extension&#39;])
             filename = osp.join(self.cache_path,fn)
 
+    # If the url was correctly built and file does not exists, start downloading
     if url != &#34;&#34;:
         if not osp.isfile(filename):
             if not self._download_video_impl(url,filename):
@@ -2923,7 +3027,7 @@ Groups are for all three channel types, Live TV, VOD, and Series</li>
 
                 # If we got the GROUPS data, show the statistics and load GROUPS
                 if all_cat != None:
-                    print(&#34;Loaded {} {} Groups in {:.3f} seconds&#34;.format(
+                    print(&#34;Loaded {:&gt;6} {} Groups  in {:.3f} seconds&#34;.format(
                         len(all_cat),loading_stream_type,dt
                     ))
                     ## Add GROUPS to dictionaries
@@ -2962,7 +3066,7 @@ Groups are for all three channel types, Live TV, VOD, and Series</li>
 
                 # If we got the STREAMS data, show the statistics and load Streams
                 if all_streams != None:
-                    print(&#34;Loaded {} {} Streams in {:.3f} seconds&#34;.format(
+                    print(&#34;Loaded {:&gt;6} {} Streams in {:.3f} seconds&#34;.format(
                         len(all_streams),loading_stream_type,dt
                     ))
                     ## Add Streams to dictionaries
@@ -3227,6 +3331,7 @@ Groups are for all three channel types, Live TV, VOD, and Series</li>
 <li><code><a title="pyxtream.pyxtream.XTream.authorization" href="#pyxtream.pyxtream.XTream.authorization">authorization</a></code></li>
 <li><code><a title="pyxtream.pyxtream.XTream.catch_all_group" href="#pyxtream.pyxtream.XTream.catch_all_group">catch_all_group</a></code></li>
 <li><code><a title="pyxtream.pyxtream.XTream.channels" href="#pyxtream.pyxtream.XTream.channels">channels</a></code></li>
+<li><code><a title="pyxtream.pyxtream.XTream.connection_headers" href="#pyxtream.pyxtream.XTream.connection_headers">connection_headers</a></code></li>
 <li><code><a title="pyxtream.pyxtream.XTream.download_video" href="#pyxtream.pyxtream.XTream.download_video">download_video</a></code></li>
 <li><code><a title="pyxtream.pyxtream.XTream.get_VOD_info_URL_by_ID" href="#pyxtream.pyxtream.XTream.get_VOD_info_URL_by_ID">get_VOD_info_URL_by_ID</a></code></li>
 <li><code><a title="pyxtream.pyxtream.XTream.get_all_epg_URL" href="#pyxtream.pyxtream.XTream.get_all_epg_URL">get_all_epg_URL</a></code></li>
@@ -3255,6 +3360,7 @@ Groups are for all three channel types, Live TV, VOD, and Series</li>
 <li><code><a title="pyxtream.pyxtream.XTream.name" href="#pyxtream.pyxtream.XTream.name">name</a></code></li>
 <li><code><a title="pyxtream.pyxtream.XTream.password" href="#pyxtream.pyxtream.XTream.password">password</a></code></li>
 <li><code><a title="pyxtream.pyxtream.XTream.search_stream" href="#pyxtream.pyxtream.XTream.search_stream">search_stream</a></code></li>
+<li><code><a title="pyxtream.pyxtream.XTream.secure_server" href="#pyxtream.pyxtream.XTream.secure_server">secure_server</a></code></li>
 <li><code><a title="pyxtream.pyxtream.XTream.series" href="#pyxtream.pyxtream.XTream.series">series</a></code></li>
 <li><code><a title="pyxtream.pyxtream.XTream.series_type" href="#pyxtream.pyxtream.XTream.series_type">series_type</a></code></li>
 <li><code><a title="pyxtream.pyxtream.XTream.server" href="#pyxtream.pyxtream.XTream.server">server</a></code></li>
