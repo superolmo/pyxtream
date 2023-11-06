@@ -1,14 +1,16 @@
 
 # Import Flask to control IPTV via REST API
 try:
+    from threading import Thread
+
     from flask import Flask
     from flask import Response as FlaskResponse
     from flask import request as FlaskRequest
-    from threading import Thread
 except:
     pass
 
 from os import path
+
 
 class EndpointAction(object):
 

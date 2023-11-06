@@ -15,20 +15,21 @@ Part of this content comes from
 > _Note_: It does not support M3U
 """
 
-from typing import List, Tuple
-import requests
-import time
-from os import path as osp
-from os import makedirs
-from os import remove
-
-# Timing xtream json downloads
-from timeit import default_timer as timer, timeit
-
 import json
-
 # used for URL validation
 import re
+import time
+from os import makedirs
+from os import path as osp
+from os import remove
+from threading import Thread
+# Timing xtream json downloads
+from timeit import default_timer as timer
+from typing import List, Tuple
+
+import requests
+
+from pyxtream.schemaValidator import SchemaType, schemaValidator
 
 try:
     from pyxtream.rest_api import FlaskWrap
@@ -37,6 +38,7 @@ except:
     USE_FLASK = False
 
 from pyxtream.progress import progress
+
 
 class Channel():
     # Required by Hypnotix
@@ -326,9 +328,11 @@ class XTream():
                 provider_username: str,
                 provider_password: str,
                 provider_url: str,
+                headers: dict = {'User-Agent':"Wget/1.20.3 (linux-gnu)"},
                 hide_adult_content: bool = False,
                 cache_path: str = "",
                 reload_time_sec: int = 60*60*8,
+                validate_json: bool = False,
                 debug_flask: bool = True
                 ):
         """Initialize Xtream Class
@@ -338,16 +342,20 @@ class XTream():
             provider_username (str):            User name of the IPTV provider
             provider_password (str):            Password of the IPTV provider
             provider_url      (str):            URL of the IPTV provider
+            headers           (dict):           Requests Headers
             hide_adult_content(bool):           When `True` hide stream that are marked for adult
             cache_path        (str, optional):  Location where to save loaded files. Defaults to empty string.
             reload_time_sec   (int, optional):  Number of seconds before automatic reloading (-1 to turn it OFF)
             debug_flask       (bool, optional): Enable the debug mode in Flask
+            validate_json     (bool, optional): Check Xtream API provided JSON for validity
 
         Returns: XTream Class Instance
 
-        - Note: If it fails to authorize with provided username and password,
+        - Note 1: If it fails to authorize with provided username and password,
                 auth_data will be an empty dictionary.
-
+        - Note 2: The JSON validation option will take considerable amount of time and it should be 
+                  used only as a debug tool. The Xtream API JSON from the provider passes through a schema
+                  that represent the best available understanding of how the Xtream API works.
         """
         self.server = provider_url
         self.username = provider_username
@@ -356,6 +364,7 @@ class XTream():
         self.cache_path = cache_path
         self.hide_adult_content = hide_adult_content
         self.threshold_time_sec = reload_time_sec
+        self.validate_json = validate_json
         
         # get the pyxtream local path
         self.app_fullpath = osp.dirname(osp.realpath(__file__))
@@ -377,7 +386,7 @@ class XTream():
                 makedirs(self.cache_path, exist_ok=True)
             print("pyxtream cache path located at {}".format(self.cache_path))
 
-        self.connection_headers = {'User-Agent':"Wget/1.20.3 (linux-gnu)"}
+        self.connection_headers = headers
 
         self.authenticate()
 
@@ -716,10 +725,14 @@ class XTream():
                         self.groups.append(self.catch_all_group)
 
                         for cat_obj in all_cat:
-                            # Create Group (Category)
-                            new_group = Group(cat_obj, loading_stream_type)
-                            #  Add to xtream class
-                            self.groups.append(new_group)
+                            if schemaValidator(cat_obj, SchemaType.GROUP):
+                                # Create Group (Category)
+                                new_group = Group(cat_obj, loading_stream_type)
+                                #  Add to xtream class
+                                self.groups.append(new_group)
+                            else:
+                                # Save what did not pass schema validation
+                                print(cat_obj)
 
                         # Sort Categories
                         self.groups.sort(key=lambda x: x.name)
@@ -754,8 +767,33 @@ class XTream():
                         skipped_adult_content = 0
                         skipped_no_name_content = 0
 
+                        numberOfStreams = len(all_streams)
+                        currentStream = 0
+                        # Calculate 1% of total number of streams
+                        # This is used to slow down the progress bar
+                        onePercentNumberOfStreams = numberOfStreams/100
+
                         for stream_channel in all_streams:
                             skip_stream = False
+                            currentStream += 1
+
+                            # Show download progress every 1% of total number of streams
+                            if (currentStream < onePercentNumberOfStreams):
+                                progress(currentStream,numberOfStreams,"Processing {} Streams".format(loading_stream_type))
+                                onePercentNumberOfStreams *= 2
+
+                            # Validate JSON scheme
+                            if self.validate_json:
+                                if loading_stream_type == self.series_type:
+                                    if not schemaValidator(stream_channel, SchemaType.SERIES_INFO):
+                                        print(stream_channel)
+                                elif loading_stream_type == self.live_type:
+                                    if not schemaValidator(stream_channel, SchemaType.LIVE):
+                                        print(stream_channel)
+                                else:
+                                    # vod_type
+                                    if not schemaValidator(stream_channel, SchemaType.VOD):
+                                        print(stream_channel)
 
                             # Skip if the name of the stream is empty
                             if stream_channel['name'] == "":
@@ -784,10 +822,13 @@ class XTream():
 
                                 # Find the first occurence of the group that the
                                 # Channel or Stream is pointing to
+                                dt = 0
+                                start = timer()
                                 the_group = next(
                                     (x for x in self.groups if x.group_id == stream_channel['category_id']),
                                     None
                                 )
+                                dt = timer()-start
 
                                 # Set group title
                                 if the_group != None:
@@ -831,7 +872,7 @@ class XTream():
                                         the_group.series.append(new_series)
                                 else:
                                     print(" - Group not found `{}`".format(stream_channel['name']))
-                        
+                        print("\n")
                         # Print information of which streams have been skipped
                         if self.hide_adult_content:
                             print(" - Skipped {} adult {} streams".format(skipped_adult_content, loading_stream_type))
