@@ -329,7 +329,8 @@ class XTream():
                 hide_adult_content: bool = False,
                 cache_path: str = "",
                 reload_time_sec: int = 60*60*8,
-                debug_flask: bool = True
+                debug_flask: bool = True,
+                user_agent: str = "Wget/1.20.3 (linux-gnu)"
                 ):
         """Initialize Xtream Class
 
@@ -377,7 +378,7 @@ class XTream():
                 makedirs(self.cache_path, exist_ok=True)
             print("pyxtream cache path located at {}".format(self.cache_path))
 
-        self.connection_headers = {'User-Agent':"Wget/1.20.3 (linux-gnu)"}
+        self.connection_headers = {'User-Agent':user_agent}
 
         self.authenticate()
 
