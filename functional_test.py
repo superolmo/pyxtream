@@ -1,12 +1,17 @@
+#!/usr/bin/python3
+
 provider_name = "YourProvider"
 url=""
 username=""
 password=""
 
-from os import remove
-import sys
-from time import sleep
 import json
+import sys
+from os import remove
+from time import sleep
+
+# Initialize pyxtream
+from pyxtream import XTream, __version__
 
 if url == "" or username == "" or password == "":
     print("Please edit this file with the provider credentials")
@@ -36,13 +41,9 @@ def str2list(commands: str) -> list:
 
     return li
 
-# Initialize pyxtream
-from pyxtream import XTream
-from pyxtream import __version__
-
 print("pyxtream version {}".format(__version__))
 
-xt = XTream("YourProvider", username, password, url)
+xt = XTream("YourProvider", username, password, url, reload_time_sec=60*60*8, debug_flask=False)
 
 sleep(0.5)
 
@@ -98,11 +99,22 @@ while True:
             print("\tFound {} results".format(result_number))
             if result_number < 10:
                 for stream in search_result_obj:
-                    print("Found {} at URL: {}".format(stream['name'], stream['url']))
+                    try:
+                        print("Found {} at URL: {}".format(stream['name'], stream['url']))
+                    except KeyError:
+                        print("Exception")
 
         elif choice == 4:
             stream_id = input("Stream ID: ")
-            xt.download_video(int(stream_id))
+            try:
+                stream_id_number = int(stream_id)
+            except:
+                stream_id_number = 0
+
+            if stream_id_number > 0:
+                print("\tFile saved at `{}`".format(xt.download_video(int(stream_id))))
+            else:
+                print("\tInvalid number")
 
         elif choice == 5:
             url = input("Enter URL to download: ")
