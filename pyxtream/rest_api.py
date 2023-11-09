@@ -1,14 +1,14 @@
 
 # Import Flask to control IPTV via REST API
-try:
-    from threading import Thread
+from threading import Thread
 
+try:
     from flask import Flask
     from flask import Response as FlaskResponse
     from flask import request as FlaskRequest
-except:
+except ImportError:
     pass
-
+import logging
 from os import path
 
 
@@ -55,7 +55,6 @@ class FlaskWrap(Thread):
 
     def __init__(self, name, xtream: object, html_template_folder: str = None, host: str = "0.0.0.0", port: int = 5000, debug: bool = True):
 
-        import logging
         log = logging.getLogger('werkzeug')
         log.setLevel(logging.ERROR)
 
@@ -66,16 +65,16 @@ class FlaskWrap(Thread):
         self.app = Flask(name)
         self.xt = xtream
         Thread.__init__(self)
-        
+
         # Configure Thread
-        self.setName("pyxtream REST API")
+        self.name ="pyxtream REST API"
         self.daemon = True
 
         # Load HTML Home Template if any
-        if html_template_folder != None:
+        if html_template_folder is not None:
             self.home_template_file_name = path.join(html_template_folder,"index.html")
             if path.isfile(self.home_template_file_name):
-                with open(self.home_template_file_name,'r') as home_html:
+                with open(self.home_template_file_name,'r', encoding="utf-8") as home_html:
                     self.home_template = home_html.read()
 
         # Add all endpoints
