@@ -22,11 +22,10 @@ import time
 from os import makedirs
 from os import path as osp
 from os import remove
-from threading import Thread
 # Timing xtream json downloads
 from timeit import default_timer as timer
 from typing import List, Tuple
-
+from datetime import datetime
 import requests
 
 from pyxtream.schemaValidator import SchemaType, schemaValidator
@@ -52,17 +51,20 @@ class Channel:
     url = ""
 
     # XTream
-    stream_type = ""
-    group_id = ""
-    is_adult = 0
-    added = ""
-    epg_channel_id = ""
-    added = ""
+    stream_type: str = ""
+    group_id: str = ""
+    is_adult: int = 0
+    added: int = 0
+    epg_channel_id: str = ""
+    age_days_from_added: int = 0
+    date_now: datetime
 
     # This contains the raw JSON data
     raw = ""
 
     def __init__(self, xtream: object, group_title, stream_info):
+        self.date_now = datetime.now()
+
         stream_type = stream_info["stream_type"]
         # Adjust the odd "created_live" type
         if stream_type in ("created_live", "radio_streams"):
@@ -101,7 +103,8 @@ class Channel:
                 if "epg_channel_id" in stream_info.keys():
                     self.epg_channel_id = stream_info["epg_channel_id"]
 
-                self.added = stream_info["added"]
+                self.added = int(stream_info["added"])
+                self.age_days_from_added = abs(datetime.utcfromtimestamp(self.added) - self.date_now).days
 
             elif stream_type == "movie":
                 stream_extension = stream_info["container_extension"]
@@ -437,8 +440,15 @@ class XTream:
 
         return search_result
 
-    def download_video(self, stream_id: int):
+    def download_video(self, stream_id: int) -> str:
+        """Download Video from Stream ID
 
+        Args:
+            stream_id (int): Stirng identifing the stream ID
+
+        Returns:
+            str: Absolute Path Filename where the file was saved. Empty if could not download
+        """
         url = ""
         filename = ""
         for stream in self.movies:
@@ -483,14 +493,14 @@ class XTream:
 
                 # Set downloaded size
                 downloaded_bytes = 0
-                
+
                 # Set stream blocks
                 block_bytes = int(4*mb_size)     # 4 MB
 
                 print(f"Ready to download {total_content_size_mb:.1f} MB file ({total_content_size})")
                 if content_type.split('/')[0] != "text":
                     with open(fullpath_filename, "wb") as file:
-                    
+
                         # Grab data by block_bytes
                         for data in response.iter_content(block_bytes,decode_unicode=False):
                             downloaded_bytes += block_bytes
@@ -510,7 +520,7 @@ class XTream:
                 print(f"HTTP error {response.status_code} while retrieving from {url}")
         except Exception as e:
             print(e)
-        
+
         return ret_code
 
     def _slugify(self, string: str) -> str:
