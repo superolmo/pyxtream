@@ -1,8 +1,10 @@
 
+from .progress import progress
 from .pyxtream import XTream
+
 try:
     from .rest_api import FlaskWrap
-except:
-    pass
-from .progress import progress
-from .version import __version__, __author__, __author_email__
+    USE_FLASK = True
+except ImportError:
+    USE_FLASK = False
+from .version import __author__, __author_email__, __version__

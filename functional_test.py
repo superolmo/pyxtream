@@ -1,34 +1,35 @@
-provider_name = "YourProvider"
-url=""
-username=""
-password=""
+#!/usr/bin/python3
 
-from os import remove
 import sys
 from time import sleep
-import json
 
-if url == "" or username == "" or password == "":
+from pyxtream import XTream, __version__
+
+PROVIDER_NAME = ""
+PROVIDER_URL = ""
+PROVIDER_USERNAME = ""
+PROVIDER_PASSWORD = ""
+
+if PROVIDER_URL == "" or PROVIDER_USERNAME == "" or PROVIDER_PASSWORD == "":
     print("Please edit this file with the provider credentials")
     sys.exit()
 
-def str2list(commands: str) -> list:
+def str2list(input_string: str) -> list:
 
     """Convert a string with comma delimited numbers into a python list of integers
 
     Args:
-        commands (str): A list of commands comma delimited
+        input_string (str): A list of commands comma delimited
 
     Returns:
         list: list of integers containing the commands
     """
     # conver to the list
-    command_list = commands.split(",")
-    #print("Command List: {}".format(command_list))
+    output_list = input_string.split(",")
 
     # convert each element as integers
     li = []
-    for i in command_list:
+    for i in output_list:
         try:
             li.append(int(i))
         except ValueError:
@@ -36,13 +37,16 @@ def str2list(commands: str) -> list:
 
     return li
 
-# Initialize pyxtream
-from pyxtream import XTream
-from pyxtream import __version__
+print(f"pyxtream version {__version__}")
 
-print("pyxtream version {}".format(__version__))
-
-xt = XTream("YourProvider", username, password, url)
+xt = XTream(
+    "YourProvider",
+    PROVIDER_USERNAME,
+    PROVIDER_PASSWORD,
+    PROVIDER_URL,
+    reload_time_sec=60*60*8,
+    debug_flask=False
+    )
 
 sleep(0.5)
 
@@ -73,7 +77,7 @@ while True:
     command_list = str2list(commands)
 
     for choice in command_list:
-        print("\t[{}]: ".format(choice))
+        print(f"\t[{choice}]: ")
 
         if choice == 0:
             #xt.flaskapp.shutdown()
@@ -86,25 +90,36 @@ while True:
             search_string = input("Search for REGEX (ex. '^Destiny.*$'): ")
             search_result_obj = xt.search_stream(search_string)
             result_number = len(search_result_obj)
-            print("\tFound {} results".format(result_number))
+            print(f"\tFound {result_number} results")
             if result_number < 10:
                 for stream in search_result_obj:
-                    print("Found `{}` at URL: {}".format(stream['name'], stream['url']))
+                    print(f"Found `{stream['name']}` at URL: {stream['url']}")
 
         elif choice == 3:
             search_string = input("Search for text: ")
             search_result_obj = xt.search_stream(r"^.*{}.*$".format(search_string))
             result_number = len(search_result_obj)
-            print("\tFound {} results".format(result_number))
+            print(f"\tFound {result_number} results")
             if result_number < 10:
                 for stream in search_result_obj:
-                    print("Found {} at URL: {}".format(stream['name'], stream['url']))
+                    try:
+                        print(f"Found {stream['name']} at URL: {stream['url']}")
+                    except KeyError:
+                        print("Exception")
 
         elif choice == 4:
             stream_id = input("Stream ID: ")
-            xt.download_video(int(stream_id))
+            #try:
+            stream_id_number = int(stream_id)
+            #except:
+            #    stream_id_number = 0
+
+            if stream_id_number > 0:
+                print(f"\tFile saved at `{xt.download_video(int(stream_id))}`")
+            else:
+                print("\tInvalid number")
 
         elif choice == 5:
             url = input("Enter URL to download: ")
             filename = input("Enter Fullpath Filename: ")
-            xt.download_video_impl(url,filename)
+            xt._download_video_impl(url,filename)
