@@ -93,21 +93,21 @@ class Channel:
             if stream_type == "live":
                 stream_extension = "ts"
 
-                # Default to 0
-                self.is_adult = 0
-                # Check if is_adult key is available
-                if "is_adult" in stream_info.keys():
-                    self.is_adult = int(stream_info["is_adult"])
-
                 # Check if epg_channel_id key is available
                 if "epg_channel_id" in stream_info.keys():
                     self.epg_channel_id = stream_info["epg_channel_id"]
 
-                self.added = int(stream_info["added"])
-                self.age_days_from_added = abs(datetime.utcfromtimestamp(self.added) - self.date_now).days
-
             elif stream_type == "movie":
                 stream_extension = stream_info["container_extension"]
+
+            # Default to 0
+            self.is_adult = 0
+            # Check if is_adult key is available
+            if "is_adult" in stream_info.keys():
+                self.is_adult = int(stream_info["is_adult"])
+
+            self.added = int(stream_info["added"])
+            self.age_days_from_added = abs(datetime.utcfromtimestamp(self.added) - self.date_now).days
 
             # Required by Hypnotix
             self.url = f"{xtream.server}/{stream_type}/{xtream.authorization['username']}/" \
@@ -298,6 +298,8 @@ class XTream:
     channels = []
     series = []
     movies = []
+    movies_30days = []
+    movies_7days = []
 
     connection_headers = {}
 
@@ -868,6 +870,10 @@ class XTream:
                             self.channels.append(new_channel)
                         elif loading_stream_type == self.vod_type:
                             self.movies.append(new_channel)
+                            if new_channel.age_days_from_added < 31:
+                                self.movies_30days.append(new_channel)
+                            if new_channel.age_days_from_added < 7:
+                                self.movies_7days.append(new_channel)
                         else:
                             self.series.append(new_series)
 
