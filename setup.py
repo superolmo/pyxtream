@@ -1,7 +1,6 @@
 
-from distutils.util import convert_path
-
 from setuptools import find_packages, setup
+from distutils.util import convert_path
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
