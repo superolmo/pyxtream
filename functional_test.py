@@ -5,10 +5,10 @@ from time import sleep
 
 from pyxtream import XTream, __version__
 
-PROVIDER_NAME = "Alibaba"
-PROVIDER_URL = "http://megamegeric.xyz:80"
-PROVIDER_USERNAME = "6580771576"
-PROVIDER_PASSWORD = "1839762243"
+PROVIDER_NAME = ""
+PROVIDER_URL = ""
+PROVIDER_USERNAME = ""
+PROVIDER_PASSWORD = ""
 
 if PROVIDER_URL == "" or PROVIDER_USERNAME == "" or PROVIDER_PASSWORD == "":
     print("Please edit this file with the provider credentials")
