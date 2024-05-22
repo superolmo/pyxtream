@@ -1,11 +1,13 @@
 # Build PIP Module
 python3 setup.py sdist bdist_wheel
+python3 -m build
 
 # Upload to PYPI
 twine upload dist/pyxtream-0.7*
 
 # Optional Local Install
 python3 -m pip install dist/pyxtream-0.7
+python3 -m pip install --editable dist/pyxtream-0.7
 
 # GitHub Documentation
 

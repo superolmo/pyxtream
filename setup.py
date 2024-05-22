@@ -1,6 +1,7 @@
 
-from setuptools import setup, find_packages
 from distutils.util import convert_path
+
+from setuptools import find_packages, setup
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -29,6 +30,9 @@ setup(
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: OS Independent",
         "Natural Language :: English"
+    ],
+    install_require=[
+        'jsonschema'
     ],
     extras_require={
         "REST_API":  ["Flask>=1.1.2",],

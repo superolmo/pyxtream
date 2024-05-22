@@ -5,10 +5,10 @@ from time import sleep
 
 from pyxtream import XTream, __version__
 
-PROVIDER_NAME = ""
-PROVIDER_URL = ""
-PROVIDER_USERNAME = ""
-PROVIDER_PASSWORD = ""
+PROVIDER_NAME = "Alibaba"
+PROVIDER_URL = "http://megamegeric.xyz:80"
+PROVIDER_USERNAME = "6580771576"
+PROVIDER_PASSWORD = "1839762243"
 
 if PROVIDER_URL == "" or PROVIDER_USERNAME == "" or PROVIDER_PASSWORD == "":
     print("Please edit this file with the provider credentials")
@@ -40,7 +40,7 @@ def str2list(input_string: str) -> list:
 print(f"pyxtream version {__version__}")
 
 xt = XTream(
-    "YourProvider",
+    PROVIDER_NAME,
     PROVIDER_USERNAME,
     PROVIDER_PASSWORD,
     PROVIDER_URL,
@@ -66,6 +66,8 @@ while True:
         (3) Search Streams Text
         (4) Download Video (stream_id)
         (5) Download Video Impl (URL, filename)
+        (6) Show how many movies added in past 30 days
+        (7) Show how many movies added in past 7 days
         ----------
         (0) Quit
         """
@@ -123,3 +125,17 @@ while True:
             url = input("Enter URL to download: ")
             filename = input("Enter Fullpath Filename: ")
             xt._download_video_impl(url,filename)
+
+        elif choice == 6:
+            num_movies = len(xt.movies_30days)
+            print(f"Found {num_movies} new movies in the past 30 days")
+            if num_movies < 20:
+                for i in range(0,num_movies):
+                    print(xt.movies_30days[i].title)
+
+        elif choice == 7:
+            num_movies = len(xt.movies_7days)
+            print(f"Found {num_movies} new movies in the past 7 days")
+            if num_movies < 20:
+                for i in range(0,num_movies):
+                    print(xt.movies_7days[i].title)
