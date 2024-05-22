@@ -1,5 +1,5 @@
 
-from setuptools import find_packages, setup
+from setuptools import setup, find_packages
 from distutils.util import convert_path
 
 with open("README.md", "r") as fh:
