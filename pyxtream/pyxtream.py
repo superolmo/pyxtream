@@ -583,6 +583,7 @@ class XTream:
             r = None
             # Prepare the authentication url
             url = f"{self.server}/player_api.php?username={self.username}&password={self.password}"
+            print(f"Attempting connection: ", end='')
             while i < 30:
                 try:
                     # Request authentication, wait 4 seconds maximum
@@ -590,7 +591,7 @@ class XTream:
                     i = 31
                 except requests.exceptions.ConnectionError:
                     time.sleep(1)
-                    print(i)
+                    print(f"{i} ", end='',flush=True)
                     i += 1
 
             if r is not None:
@@ -612,7 +613,7 @@ class XTream:
                 else:
                     print(f"Provider `{self.name}` could not be loaded. Reason: `{r.status_code} {r.reason}`")
             else:
-                print(f"{self.name}: Provider refused the connection")
+                print(f"\n{self.name}: Provider refused the connection")
 
     def _load_from_file(self, filename) -> dict:
         """Try to load the dictionary from file

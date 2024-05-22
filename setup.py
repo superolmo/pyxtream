@@ -30,6 +30,9 @@ setup(
         "Operating System :: OS Independent",
         "Natural Language :: English"
     ],
+    install_require=[
+        'jsonschema'
+    ],
     extras_require={
         "REST_API":  ["Flask>=1.1.2",],
     }
