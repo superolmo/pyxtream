@@ -1,3 +1,7 @@
+# Build docs
+rm -rf doc
+pdoc pyxtream -o doc
+
 # Build PIP Module
 python3 setup.py sdist bdist_wheel
 
@@ -6,12 +10,6 @@ twine upload dist/pyxtream-0.7*
 
 # Optional Local Install
 python3 -m pip install dist/pyxtream-0.7
-
-# GitHub Documentation
-
-## Build docs
-rm -rf doc
-pdoc pyxtream
 
 # Record TS Video
 ffmpeg -y -i "(iptv url)" -c:v copy -c:a copy  -map 0:v -map 0:a -t 00:00:30 "myrecording.ts" >"mylog.log" 2>&1
