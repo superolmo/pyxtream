@@ -1,6 +1,6 @@
 # Build docs
 rm -rf doc
-pdoc pyxtream -o doc
+pdoc pyxtream -o docs
 
 # Build PIP Module
 python3 setup.py sdist bdist_wheel
