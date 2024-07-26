@@ -30,7 +30,7 @@ setup(
         "Operating System :: OS Independent",
         "Natural Language :: English"
     ],
-    install_require=[
+    install_requires=[
         'jsonschema'
     ],
     extras_require={
