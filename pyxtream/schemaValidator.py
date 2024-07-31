@@ -97,7 +97,7 @@ series_schema = {
         },
         "episodes": {
             "patternProperties": {
-                "^\d+$": {
+                r"^\d+$": {
                     "type": "array",
                     "items": {
                         "properties": {
