@@ -12,12 +12,60 @@
     <link href="https://unpkg.com/video.js@7/dist/video-js.min.css" rel="stylesheet" />
     <link href="https://unpkg.com/@videojs/themes@1/dist/city/index.css" rel="stylesheet" />
     <script src="https://vjs.zencdn.net/7.17.0/video.min.js"></script>
+    <style>
+        .card {
+        width: 200px;
+        margin: 10px;
+        padding: 10px;
+        }
+
+        .card-img-top {
+        height: 150px;
+        width: 100%;
+        object-fit: cover;
+        }
+
+        .card-title {
+        font-size: 1rem;
+        }
+
+        .card-text {
+        font-size: 0.8rem;
+        }
+
+        .play_movie {
+        font-size: 0.8rem;
+        padding: 5px;
+        }
+
+        .open_series {
+        font-size: 0.8rem;
+        padding: 5px;
+        }
+    </style>
 </head>
 
 <body>
     <nav class="navbar navbar-expand navbar-dark sticky-top bg-dark">
         <div class="container">
             <a class="navbar-brand" href="#">PyXtream</a>
+            <div class="dropdown">
+                <button class="btn btn-secondary dropdown-toggle" type="button" id="countryDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                  All Countries
+                </button>
+                <ul class="dropdown-menu" aria-labelledby="countryDropdown">
+                 <li><a class="dropdown-item" href="#" onclick="updateDropDownButtonLabel('All Countries')">All Countries</a></li>
+                 <li><a class="dropdown-item" href="#" onclick="updateDropDownButtonLabel('Arabic')">Arabic</a></li>
+                 <li><a class="dropdown-item" href="#" onclick="updateDropDownButtonLabel('Brazil')">Brazil</a></li>
+                 <li><a class="dropdown-item" href="#" onclick="updateDropDownButtonLabel('English')">English</a></li>
+                 <li><a class="dropdown-item" href="#" onclick="updateDropDownButtonLabel('French')">French</a></li>
+                 <li><a class="dropdown-item" href="#" onclick="updateDropDownButtonLabel('India')">India</a></li>
+                 <li><a class="dropdown-item" href="#" onclick="updateDropDownButtonLabel('Italy')">Italy</a></li>
+                 <li><a class="dropdown-item" href="#" onclick="updateDropDownButtonLabel('Japan')">Japan</a></li>
+                 <li><a class="dropdown-item" href="#" onclick="updateDropDownButtonLabel('Portugal')">Portugal</a></li>
+                 <li><a class="dropdown-item" href="#" onclick="updateDropDownButtonLabel('Spain')">Spain</a></li>
+                </ul>
+              </div>
             <div class="d-flex">
                 <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search" id="searchString_INPUT"
                 style="width: 150px;">
@@ -55,10 +103,14 @@ var html_card = `
                 <h5 class="card-title" id="stream_title"></h5>
                 <p class="card-text"></p>
             </div>
-            <div class="card-footer">
+            <div class="card-footer text-center">
                 <button class="btn btn-dark btn-lg btn-block text-nowrap play_movie" 
                         id="play_video_btn" data-bs-toggle="tooltip" title="">
                     <i class="bi bi-play-circle"></i> Play Movie
+                </button>
+                <button class="btn btn-lg btn-block text-nowrap open_series" 
+                        id="open_series_btn" data-bs-toggle="tooltip" title="">
+                    <i class="bi bi-play-circle"></i> Open Series
                 </button>
             </div>
         </div>
@@ -74,21 +126,15 @@ var html_card = `
 function shortToLongLanguage(short) {
     ret_value = "";
     switch (short) {
-        case "EN":
-            ret_value = "English";
-            break;
-        case "IT":
-            ret_value = "Italian";
-            break;
-        case "AR":
-            ret_value = "Arabic";
-            break;
-        case "ES":
-            ret_value = "Spanish";
-            break;
-        case "FR":
-            ret_value = "French";
-            break;
+        case "AR": ret_value = "Arabic"; break;
+        case "BR": ret_value = "Brazil"; break;
+        case "EN": ret_value = "English"; break;
+        case "FR": ret_value = "French"; break;
+        case "IN": ret_value = "India"; break;
+        case "IT": ret_value = "Italian"; break;
+        case "JP": ret_value = "Japan"; break;
+        case "PT": ret_value = "Portugal"; break;
+        case "ES": ret_value = "Spain"; break;
         default:
             ret_value = short;
     }
@@ -112,26 +158,46 @@ function htmlToElement(html) {
  * @param {string} item JSON string contining the data for one stream
  * @returns string with the formatted HTML card for the stream
  */
-function buildCard(item)
+function buildMovieCard(item)
 {
+    var page_country = document.getElementById("countryDropdown").value;
+
     var card = htmlToElement(html_card);
     var card_front = card.querySelector('.front');
     var card_back = card.querySelector('.back');
-    /* Get all the card content from item object */
-    var stream_id = item.stream_id;
-    var stream_icon = item.stream_icon;
-    var is_adult = (item.is_adult == "1");
+    var card_info = "";
+    /*** Get all the card content from item object ***/
+    switch (item.stream_type) {
+        case "movie":
+        case "live":
+        case "created_live": 
+            var stream_id = item.stream_id;
+            var stream_icon = item.stream_icon;
+            var is_adult = (item.is_adult == "1");
+            var stream_extension = item.container_extension;
+            var stream_url = item.url;
+            var stream_type = item.stream_type;
+            break;
+        case undefined:
+            // If stream_id is undefined, it is not a Movie, it is a Series
+            var stream_id = item.series_id;
+            var stream_icon = item.cover;
+            var stream_type = "series";
+            break;
+        default:
+            // Not sure if we ever go into here
+            console.log("Unknown");
+            console.log(item);
+            var stream_type = "";
+    }
     var stream_name = item.name.split("|");
     if (stream_name.length > 1) {
         var stream_title = stream_name[1].trim();
-        var stream_language = shortToLongLanguage(stream_name[0].trim());
+        var stream_country = shortToLongLanguage(stream_name[0].trim());
     } else {
         var stream_title = stream_name[0].trim();
-        var stream_language = ""
+        var stream_country = ""
     }
-    var stream_extension = item.container_extension;
-    var stream_url = item.url;
-    var stream_type = item.stream_type;
 
     if (stream_icon == null)
         stream_icon = "";
@@ -144,9 +210,22 @@ function buildCard(item)
     }
     card_front.querySelector("#stream_title").innerHTML = stream_title;
     
-    card_front.querySelector('.play_movie').setAttribute("movie_url", stream_url);
-    card_front.querySelector('.play_movie').setAttribute("movie_extension", stream_extension);
-    card_front.querySelector('.card-text').innerHTML = "[" + stream_language + "]-[" + stream_type + "]-ID:[" + stream_id + "]";
+    if ((stream_type == "series") || (stream_type == undefined)) {
+        card_front.querySelector("#open_series_btn").style.visibility = 'visible';
+        card_front.querySelector("#play_video_btn").style.visibility = 'hidden';
+    } else {
+        card_front.querySelector("#play_video_btn").style.visibility = 'visible';
+        card_front.querySelector("#open_series_btn").style.visibility = 'hidden';
+        card_front.querySelector('.play_movie').setAttribute("movie_url", stream_url);
+        card_front.querySelector('.play_movie').setAttribute("movie_extension", stream_extension);
+    }
+
+    card_info = "[" + stream_type + "]-ID:[" + stream_id + "]";
+    if (stream_country != "")
+    {
+        card_info = "[" + stream_country + "]-" + card_info;
+    }
+    card_front.querySelector('.card-text').innerHTML = card_info
 
     if (is_adult)
     {
@@ -154,7 +233,13 @@ function buildCard(item)
         card_front.querySelector(".card-body").classList.add("text-danger");
     }
 
-    return card;
+    if (page_country == undefined)
+        return card;
+
+    if ((page_country == stream_country) || (page_country == "All Countries") || (page_country == ""))
+        return card;
+
+    return "";
 }
 
 /**
@@ -166,29 +251,25 @@ async function fetchSearchResults(search_string)
     const response = await fetch("http://localhost:5000/stream_search/" + document.getElementById("searchString_INPUT").value);
     const data = await response.json();
     
-    var search_results = document.getElementById("search_results");
+    var searchResults = document.getElementById("search_results");
+    searchResults.innerHTML = "<div class='row row-cols-1 row-cols-md-2 g-4'></div>"
+    var searchResultsRow = searchResults.firstChild;
 
-    search_results.innerHTML = "";
+    const numberOfRecords = data.length;
+    let currentRecordIndex = 0;
 
-    search_results.innerHTML = "<div class='row row-cols-1 row-cols-md-2 g-4'></div>"
-    var search_results_row = search_results.firstChild;
-
-    number_of_records = data.length;
-    maximum_records_to_display = 25;
-    current_record_index = 0;
-
-    console.log("Found " + number_of_records + " streams. Showing only " + maximum_records_to_display + " records");
+    console.log(`Found ${numberOfRecords} streams. Showing only ${maximumRecordsToDisplay} records`);
 
     /* For every result stream, prepare and add a card to the search result div*/
-    data.every(item => {
-        current_record_index++;
-        if (current_record_index < maximum_records_to_display)
-        {
-            new_card = buildCard(item);
-            search_results_row.appendChild(new_card);
-            return true;
+    data.every(item => {        
+        if (currentRecordIndex >= maximumRecordsToDisplay) return false;
+
+        const newCard = buildMovieCard(item);
+        if (newCard) {
+            searchResultsRow.appendChild(newCard);
         }
-        return false;
+        currentRecordIndex++;    
+        return true;
     });
 
     /* After adding cards, I can attached the play movie event to all the cards */
@@ -215,34 +296,41 @@ function play_video(event) {
 
     if (event.target.nodeName == 'BUTTON')
     {
-        var movie_url = event.target.attributes.movie_url.value;
-        var movie_extension = event.target.attributes.movie_extension.value;
-        var allowed_extensions = ["mp4", "mkv"];
+        switch (event.target.id) {
+            case "play_video_btn":
+                var movie_url = event.target.attributes.movie_url.value;
+                var movie_extension = event.target.attributes.movie_extension.value;
+                var allowed_extensions = ["mp4", "mkv"];
 
-        if (allowed_extensions.includes(movie_extension))
-        {
-            var myPlayer = videojs('video_player_id', {liveui: true, controls: true, autoplay: true});
-            myPlayer.aspectRatio('16:9');
-            myPlayer.fluid(true);
-            
-            if (movie_extension == "mp4") {
-                mime_type = "video/mp4";
-            }
-            else if (movie_extension == "mkv") {
-                mime_type = "video/webm";
-            }
-            myPlayer.src({ type: mime_type, src: movie_url });
-            document.getElementById('myModal').addEventListener('hidden.bs.modal', function (event) {
-                videojs.players.video_player_id.pause()
-            })
+                if (allowed_extensions.includes(movie_extension))
+                {
+                    var myPlayer = videojs('video_player_id', {liveui: true, controls: true, autoplay: true});
+                    myPlayer.aspectRatio('16:9');
+                    myPlayer.fluid(true);
+                    
+                    if (movie_extension == "mp4") {
+                        mime_type = "video/mp4";
+                    }
+                    else if (movie_extension == "mkv") {
+                        mime_type = "video/webm";
+                    }
+                    myPlayer.src({ type: mime_type, src: movie_url });
+                    document.getElementById('myModal').addEventListener('hidden.bs.modal', function (event) {
+                        videojs.players.video_player_id.pause()
+                    })
 
-            var myVideoModal = new bootstrap.Modal(document.getElementById('myModal'));
-            myVideoModal.show();
-        }
-        else
-        {
-            console.log("Video type not supported `" + movie_extension + '`');
-            console.log("Video URL: `" + movie_url + "`")
+                    var myVideoModal = new bootstrap.Modal(document.getElementById('myModal'));
+                    myVideoModal.show();
+                }
+                else
+                {
+                    console.log("Video type not supported `" + movie_extension + '`');
+                    console.log("Video URL: `" + movie_url + "`")
+                }
+                break;
+            case "open_series_btn":
+                //TODO: Add code to open the series
+                break;
         }
     }
     else
@@ -258,8 +346,14 @@ function play_video(event) {
     }
 }
 
+function updateDropDownButtonLabel(txt)
+{
+  var dropdownButton = document.querySelector('#countryDropdown');
+  dropdownButton.innerHTML = txt;
+}
+
 /* Setup event handlers */
 document.getElementById("searchString_INPUT").addEventListener('keypress', logKey);
 document.getElementById("searchString_BTN").addEventListener('click', fetchSearchResults);
-
+maximumRecordsToDisplay = 100;
 </script>

@@ -54,7 +54,11 @@ python3 functional_test.py
 
 The functional test will allow you to authenticate on startup, load and search streams. If Flask is installed, a simple website will be available at http://localhost:5000 to allow you to search and play streams.
 
-### Interesting Work by somebody else 
+## Interesting Work by somebody else 
+
+- xtreamPOC - Project is a Proof of Concept (POC) that leverages pyxtream, MPV, and NiceGUI to demonstrate the use of Xtream Portal Codes.
+
+## 
 
 So far there is no ready to use Transport Stream library for playing live stream.
 
@@ -112,6 +116,7 @@ xTream.movies[{},{},...]
 
 | Date | Version | Description |
 | ----------- | -----| ----------- |
+| 2024-09-02 | 0.7.2 | - <br>- <br>- |
 | 2024-05-21 | 0.7.1 | - Fixed missing jsonschema package<br>- Fixed provider name in functional_test<br>- Improved print out of connection attempts<br>- Added method to read latest changes in functional_test
 | 2023-11-08 | 0.7.0 | - Added Schema Validator<br>- Added Channel Age<br>- Added list of movies added in the last 30 and 7 days<br>- Updated code based on PyLint<br>- Fixed Flask package to be optional [richard-de-vos](https://github.com/richard-de-vos)|
 | 2023-02-06 | 0.6.0 | - Added methods to change connection header, to turn off reload timer, and to enable/disable Flask debug mode<br>- Added a loop when attempting to connect to the provider <br>- Cleaned up some print lines|
