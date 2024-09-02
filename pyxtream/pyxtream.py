@@ -466,7 +466,6 @@ class XTream:
 
         # If the url was correctly built and file does not exists, start downloading
         if url != "":
-            #if not osp.isfile(filename):
             if not self._download_video_impl(url,filename):
                 return "Error"
 
@@ -499,7 +498,12 @@ class XTream:
                 mode = 'wb'  # Write a new file
 
             # Make the request to download
-            response = requests.get(url, timeout=(10), stream=True, allow_redirects=True, headers=self.connection_headers)
+            response = requests.get(
+                url, timeout=(10),
+                stream=True,
+                allow_redirects=True,
+                headers=self.connection_headers
+                )
             # If there is an answer from the remote server
             if response.status_code == 200 or response.status_code == 206:
                 # Get content type Binary or Text
