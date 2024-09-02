@@ -423,28 +423,6 @@ class XTream:
         search_result = []
         regex_flags = re.IGNORECASE if ignore_case else 0
         regex = re.compile(keyword, regex_flags)
-        # if ignore_case:
-        #     regex = re.compile(keyword, re.IGNORECASE)
-        # else:
-        #     regex = re.compile(keyword)
-
-        # if "movies" in stream_type:
-        #     print(f"Checking {len(self.movies)} movies")
-        #     for stream in self.movies:
-        #         if re.match(regex, stream.name) is not None:
-        #             search_result.append(stream.export_json())
-
-        # if "channels" in stream_type:
-        #     print(f"Checking {len(self.channels)} channels")
-        #     for stream in self.channels:
-        #         if re.match(regex, stream.name) is not None:
-        #             search_result.append(stream.export_json())
-
-        # if "series" in stream_type:
-        #     print(f"Checking {len(self.series)} series")
-        #     for stream in self.series:
-        #         if re.match(regex, stream.name) is not None:
-        #             search_result.append(stream.export_json())
 
         stream_collections = {
             "movies": self.movies,
@@ -720,22 +698,6 @@ class XTream:
         except Exception as e:
             print(f" - Could not save to file `{full_filename}`: e=`{e}`")
             return False
-        # if data_list is not None:
-
-        #     #Build the full path
-        #     full_filename = osp.join(self.cache_path, f"{self._slugify(self.name)}-{filename}")
-        #     # If the path makes sense, save the file
-        #     json_data = json.dumps(data_list, ensure_ascii=False)
-        #     try:
-        #         with open(full_filename, mode="wt", encoding="utf-8") as myfile:
-        #             myfile.write(json_data)
-        #     except Exception as e:
-        #         print(f" - Could not save to file `{full_filename}`: e=`{e}`")
-        #         return False
-
-        #     return True
-        # else:
-        #     return False
 
     def load_iptv(self) -> bool:
         """Load XTream IPTV
@@ -1019,7 +981,6 @@ class XTream:
             Optional[dict]: JSON dictionary of the loaded data, or None
         """
         for attempt in range(10):
-            time.sleep(1)
             try:
                 response = requests.get(url, timeout=timeout, headers=self.connection_headers)
                 response.raise_for_status()  # Raise an HTTPError for bad responses (4xx and 5xx)
@@ -1028,31 +989,6 @@ class XTream:
                 self._handle_request_exception(e)
 
         return None
-        # i = 0
-        # while i < 10:
-        #     time.sleep(1)
-        #     try:
-        #         r = requests.get(url, timeout=timeout, headers=self.connection_headers)
-        #         i = 20
-        #         if r.status_code == 200:
-        #             return r.json()
-        #     except requests.exceptions.ConnectionError:
-        #         print(" - Connection Error: Possible network problem (e.g. DNS failure, refused connection, etc)")
-        #         i += 1
-
-        #     except requests.exceptions.HTTPError:
-        #         print(" - HTTP Error")
-        #         i += 1
-
-        #     except requests.exceptions.TooManyRedirects:
-        #         print(" - TooManyRedirects")
-        #         i += 1
-
-        #     except requests.exceptions.ReadTimeout:
-        #         print(" - Timeout while loading data")
-        #         i += 1
-
-        # return None
 
     # GET Stream Categories
     def _load_categories_from_provider(self, stream_type: str):
