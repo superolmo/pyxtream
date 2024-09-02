@@ -2,12 +2,9 @@
 # Import Flask to control IPTV via REST API
 from threading import Thread
 
-try:
-    from flask import Flask
-    from flask import Response as FlaskResponse
-    from flask import request as FlaskRequest
-except ImportError:
-    pass
+from flask import Flask
+from flask import Response as FlaskResponse
+from flask import request as FlaskRequest
 import logging
 from os import path
 

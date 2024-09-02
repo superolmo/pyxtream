@@ -1,12 +1,11 @@
-
+import os
 from setuptools import setup, find_packages
-from distutils.util import convert_path
 
 with open("README.md", "r", encoding='utf-8') as fh:
     long_description = fh.read()
 
 main_ns = {}
-ver_path = convert_path('pyxtream/version.py')
+ver_path = os.path.join('pyxtream', 'version.py')
 with open(ver_path, encoding='utf-8') as ver_file:
     exec(ver_file.read(), main_ns)
 
@@ -30,8 +29,9 @@ setup(
         "Operating System :: OS Independent",
         "Natural Language :: English"
     ],
-    install_require=[
-        'jsonschema'
+    install_requires=[
+        'jsonschema',
+        'requests',
     ],
     extras_require={
         "REST_API":  ["Flask>=1.1.2",],
