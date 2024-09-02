@@ -529,8 +529,7 @@ class XTream:
                             progress(downloaded_bytes,total_content_size,"Downloading")
                             file.write(data)
 
-                    if downloaded_bytes == total_content_size:
-                        ret_code = True
+                    ret_code = True
 
                     # Delete Range if it was added
                     try:

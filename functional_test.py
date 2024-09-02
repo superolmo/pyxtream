@@ -120,15 +120,12 @@ while True:
 
         elif choice == 4:
             stream_id = input("Stream ID: ")
-            #try:
             stream_id_number = int(stream_id)
-            #except:
-            #    stream_id_number = 0
 
             if stream_id_number > 0:
-                print(f"\tFile saved at `{xt.download_video(int(stream_id))}`")
+                print(f"\n\tFile saved at `{xt.download_video(int(stream_id))}`")
             else:
-                print("\tInvalid number")
+                print("\n\tInvalid number")
 
         elif choice == 5:
             url = input("Enter URL to download: ")
