@@ -56,9 +56,7 @@ The functional test will allow you to authenticate on startup, load and search s
 
 ## Interesting Work by somebody else 
 
-- xtreamPOC - Project is a Proof of Concept (POC) that leverages pyxtream, MPV, and NiceGUI to demonstrate the use of Xtream Portal Codes.
-
-## 
+- xtreamPOC - https://github.com/sght500/xtreamPOC - Project is a Proof of Concept (POC) that leverages pyxtream, MPV, and NiceGUI to demonstrate the use of Xtream Portal Codes.
 
 So far there is no ready to use Transport Stream library for playing live stream.
 
