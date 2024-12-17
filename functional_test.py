@@ -72,6 +72,7 @@ while True:
         (6) Show how many movies added in past 30 days
         (7) Show how many movies added in past 7 days
         (8) Get Series Info By ID (series_id)
+        (9) Get Live EPG by Stream ID
         ----------
         (0) Quit
         """
@@ -150,4 +151,9 @@ while True:
             series_id = input("Series ID: ")
 
             data = xt._load_series_info_by_id_from_provider(series_id)
+            print(data)
+
+        elif choice == 9:
+            stream_id = input("Stream ID: ")
+            data = xt.liveEpgByStream(stream_id)
             print(data)

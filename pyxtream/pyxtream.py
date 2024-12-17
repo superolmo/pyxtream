@@ -19,12 +19,13 @@ import json
 # used for URL validation
 import re
 import time
+import sys
 from os import makedirs
 from os import path as osp
-from os import remove
+
 # Timing xtream json downloads
 from timeit import default_timer as timer
-from typing import List, Tuple, Optional
+from typing import Tuple, Optional
 from datetime import datetime, timedelta
 import requests
 
@@ -90,6 +91,8 @@ class Channel:
             if "category_id" in stream_info.keys():
                 self.group_id = int(stream_info["category_id"])
 
+            stream_extension = ""
+
             if stream_type == "live":
                 stream_extension = "ts"
 
@@ -107,7 +110,9 @@ class Channel:
                 self.is_adult = int(stream_info["is_adult"])
 
             self.added = int(stream_info["added"])
-            self.age_days_from_added = abs(datetime.utcfromtimestamp(self.added) - self.date_now).days
+            self.age_days_from_added = abs(
+                datetime.utcfromtimestamp(self.added) - self.date_now
+                ).days
 
             # Required by Hypnotix
             self.url = f"{xtream.server}/{stream_type}/{xtream.authorization['username']}/" \
@@ -286,6 +291,12 @@ class XTream:
     secure_server = ""
     username = ""
     password = ""
+    base_url = ""
+    base_url_ssl = ""
+
+    cache_path = ""
+
+    account_expiration: timedelta
 
     live_type = "Live"
     vod_type = "VOD"
@@ -319,6 +330,8 @@ class XTream:
     # If the cached JSON file is older than threshold_time_sec then load a new
     # JSON dictionary from the provider
     threshold_time_sec = -1
+
+    validate_json: bool = True
 
     def __init__(
         self,
@@ -378,7 +391,7 @@ class XTream:
             # If the cache_path is not a directory, clear it
             if not osp.isdir(self.cache_path):
                 print(" - Cache Path is not a directory, using default '~/.xtream-cache/'")
-                self.cache_path == ""
+                self.cache_path = ""
 
         # If the cache_path is still empty, use default
         if self.cache_path == "":
@@ -401,7 +414,9 @@ class XTream:
 
         if self.state['authenticated']:
             if USE_FLASK:
-                self.flaskapp = FlaskWrap('pyxtream', self, self.html_template_folder, debug=debug_flask)
+                self.flaskapp = FlaskWrap(
+                    'pyxtream', self, self.html_template_folder, debug=debug_flask
+                    )
                 self.flaskapp.start()
 
     def search_stream(self, keyword: str,
@@ -505,7 +520,7 @@ class XTream:
                 headers=self.connection_headers
                 )
             # If there is an answer from the remote server
-            if response.status_code == 200 or response.status_code == 206:
+            if response.status_code in (200, 206):
                 # Get content type Binary or Text
                 content_type = response.headers.get('content-type',None)
 
@@ -519,7 +534,9 @@ class XTream:
                 # Set stream blocks
                 block_bytes = int(4*mb_size)     # 4 MB
 
-                print(f"Ready to download {total_content_size_mb:.1f} MB file ({total_content_size})")
+                print(
+                    f"Ready to download {total_content_size_mb:.1f} MB file ({total_content_size})"
+                    )
                 if content_type.split('/')[0] != "text":
                     with open(fullpath_filename, mode) as file:
 
@@ -726,6 +743,15 @@ class XTream:
             print("Warning, data has already been loaded.")
             return True
 
+        # Delete skipped channels from cache
+        full_filename = osp.join(self.cache_path, "skipped_streams.json")
+        try:
+            f = open(full_filename, mode="r+", encoding="utf-8")
+            f.truncate(0)
+            f.close()
+        except FileNotFoundError:
+            pass
+
         for loading_stream_type in (self.live_type, self.vod_type, self.series_type):
             ## Get GROUPS
 
@@ -928,6 +954,7 @@ class XTream:
         try:
             with open(full_filename, mode="a", encoding="utf-8") as myfile:
                 myfile.writelines(json_data)
+                myfile.write('\n')
             return True
         except Exception as e:
             print(f" - Could not save to skipped stream file `{full_filename}`: e=`{e}`")
@@ -943,7 +970,9 @@ class XTream:
         series_seasons = self._load_series_info_by_id_from_provider(get_series.series_id)
 
         if series_seasons["seasons"] is None:
-            series_seasons["seasons"] = [{"name": "Season 1", "cover": series_seasons["info"]["cover"]}]
+            series_seasons["seasons"] = [
+                {"name": "Season 1", "cover": series_seasons["info"]["cover"]}
+                ]
 
         for series_info in series_seasons["seasons"]:
             season_name = series_info["name"]
@@ -983,13 +1012,52 @@ class XTream:
         Returns:
             Optional[dict]: JSON dictionary of the loaded data, or None
         """
+
+        kb_size = 1024
+        all_data = []
+        down_stats = {"bytes": 0, "kbytes": 0, "mbytes": 0, "start": 0.0, "delta_sec": 0.0}
+
         for attempt in range(10):
             try:
-                response = requests.get(url, timeout=timeout, headers=self.connection_headers)
+                response = requests.get(
+                    url,
+                    stream=True,
+                    timeout=timeout,
+                    headers=self.connection_headers
+                    )
                 response.raise_for_status()  # Raise an HTTPError for bad responses (4xx and 5xx)
-                return response.json()
+                break
             except requests.exceptions.RequestException as e:
                 self._handle_request_exception(e)
+                return None
+
+        # If there is an answer from the remote server
+        if response.status_code in (200, 206):
+            down_stats["start"] = time.perf_counter()
+
+            # Set downloaded size
+            down_stats["bytes"] = 0
+
+            # Set stream blocks
+            block_bytes = int(1*kb_size*kb_size)     # 4 MB
+
+            # Grab data by block_bytes
+            for data in response.iter_content(block_bytes, decode_unicode=False):
+                down_stats["bytes"] += len(data)
+                down_stats["kbytes"] = down_stats["bytes"]/kb_size
+                down_stats["mbytes"] = down_stats["bytes"]/kb_size/kb_size
+                down_stats["delta_sec"] = time.perf_counter() - down_stats["start"]
+                download_speed_average = down_stats["kbytes"]//down_stats["delta_sec"]
+                sys.stdout.write(
+                    f'\rDownloading {down_stats["kbytes"]:.1f} MB at {download_speed_average:.0f} kB/s'
+                    )
+                sys.stdout.flush()
+                all_data.append(data)
+            print(" - Done")
+            full_content = b''.join(all_data)
+            return json.loads(full_content)
+
+        print(f"HTTP error {response.status_code} while retrieving from {url}")
 
         return None
 
