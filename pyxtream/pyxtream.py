@@ -866,7 +866,7 @@ class XTream:
                     if not skip_stream:
                         # Some channels have no group,
                         # so let's add them to the catch all group
-                        if stream_channel["category_id"] == "":
+                        if stream_channel["category_id"] is None or stream_channel["category_id"] == "":
                             stream_channel["category_id"] = "9999"
                         elif stream_channel["category_id"] != "1":
                             pass
