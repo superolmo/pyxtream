@@ -48,7 +48,8 @@ xt = XTream(
     PROVIDER_PASSWORD,
     PROVIDER_URL,
     reload_time_sec=60*60*8,
-    debug_flask=True
+    debug_flask=True,
+    enable_flask=True
     )
 
 sleep(0.5)
