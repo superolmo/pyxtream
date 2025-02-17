@@ -240,6 +240,9 @@ class Serie:
     raw = ""
 
     def __init__(self, xtream: object, series_info):
+
+        series_info["added"] = series_info["last_modified"]
+
         # Raw JSON Series
         self.raw = series_info
         self.xtream = xtream
@@ -267,6 +270,10 @@ class Serie:
         # Check if genre key is available
         if "genre" in series_info.keys():
             self.genre = series_info["genre"]
+
+        self.url =  f"{xtream.server}/series/" \
+                    f"{xtream.authorization['username']}/" \
+                    f"{xtream.authorization['password']}/{self.series_id}/"
 
     def export_json(self):
         jsondata = {}
@@ -303,7 +310,7 @@ class XTream:
     series_type = "Series"
 
     auth_data = {}
-    authorization = {}
+    authorization = {'username': '', 'password': ''}
 
     groups = []
     channels = []
@@ -333,6 +340,9 @@ class XTream:
 
     validate_json: bool = True
 
+    # Used by REST API to get download progress
+    download_progress = 0
+
     def __init__(
         self,
         provider_name: str,
@@ -344,6 +354,7 @@ class XTream:
         cache_path: str = "",
         reload_time_sec: int = 60*60*8,
         validate_json: bool = False,
+        enable_flask: bool = False,
         debug_flask: bool = True
         ):
         """Initialize Xtream Class
@@ -359,8 +370,9 @@ class XTream:
                                                 Defaults to empty string.
             reload_time_sec   (int, optional):  Number of seconds before automatic reloading
                                                 (-1 to turn it OFF)
-            debug_flask       (bool, optional): Enable the debug mode in Flask
             validate_json     (bool, optional): Check Xtream API provided JSON for validity
+            enable_flask      (bool, optional): Enable Flask
+            debug_flask       (bool, optional): Enable the debug mode in Flask
 
         Returns: XTream Class Instance
 
@@ -413,16 +425,23 @@ class XTream:
             print("Reload timer is OFF")
 
         if self.state['authenticated']:
-            if USE_FLASK:
+            if USE_FLASK and enable_flask:
+                print("Starting Web Interface")
                 self.flaskapp = FlaskWrap(
                     'pyxtream', self, self.html_template_folder, debug=debug_flask
                     )
                 self.flaskapp.start()
+            else:
+                print("Web interface not running")
+
+    def get_last_7days(self):
+        return json.dumps(self.movies_7days, default= lambda x:x.export_json())
 
     def search_stream(self, keyword: str,
                       ignore_case: bool = True,
                       return_type: str = "LIST",
-                      stream_type: list = ("series", "movies", "channels")) -> list:
+                      stream_type: list = ("series", "movies", "channels"),
+                      added_after: datetime = None) -> list:
         """Search for streams
 
         Args:
@@ -430,6 +449,7 @@ class XTream:
             ignore_case (bool, optional): True to ignore case during search. Defaults to "True".
             return_type (str, optional): Output format, 'LIST' or 'JSON'. Defaults to "LIST".
             stream_type (list, optional): Search within specific stream type.
+            added_after (datetime, optional): Search for items that have been added after a certain date.
 
         Returns:
             list: List with all the results, it could be empty.
@@ -450,8 +470,13 @@ class XTream:
                 collection = stream_collections[stream_type_name]
                 print(f"Checking {len(collection)} {stream_type_name}")
                 for stream in collection:
-                    if re.match(regex, stream.name) is not None:
-                        search_result.append(stream.export_json())
+                    if stream.name and re.match(regex, stream.name) is not None:
+                        if added_after is None:
+                            # Add all matches
+                            search_result.append(stream.export_json())
+                        else:
+                            # Only add if it is more recent
+                            pass
             else:
                 print(f"`{stream_type_name}` not found in collection")
 
@@ -473,6 +498,10 @@ class XTream:
         """
         url = ""
         filename = ""
+        for series_stream in self.series:
+            if series_stream.series_id == stream_id:
+                url = f"{series_stream.url}/{series_stream.episodes["1"].id}.{series_stream.episodes["1"].container_extension}"
+
         for stream in self.movies:
             if stream.id == stream_id:
                 url = stream.url
@@ -530,6 +559,7 @@ class XTream:
 
                 # Set downloaded size
                 downloaded_bytes = 0
+                self.download_progress = 0
 
                 # Set stream blocks
                 block_bytes = int(4*mb_size)     # 4 MB
@@ -544,6 +574,7 @@ class XTream:
                         for data in response.iter_content(block_bytes,decode_unicode=False):
                             downloaded_bytes += block_bytes
                             progress(downloaded_bytes,total_content_size,"Downloading")
+                            self.download_progress = downloaded_bytes
                             file.write(data)
 
                     ret_code = True
@@ -557,7 +588,10 @@ class XTream:
                     print(f"URL has a file with unexpected content-type {content_type}")
             else:
                 print(f"HTTP error {response.status_code} while retrieving from {url}")
+        except requests.exceptions.ReadTimeout:
+            print("Read Timeout, try again")
         except Exception as e:
+            print("Unknown error")
             print(e)
 
         return ret_code
@@ -626,7 +660,7 @@ class XTream:
                     # Request authentication, wait 4 seconds maximum
                     r = requests.get(url, timeout=(4), headers=self.connection_headers)
                     i = 31
-                except requests.exceptions.ConnectionError:
+                except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
                     time.sleep(1)
                     print(f"{i} ", end='',flush=True)
                     i += 1
@@ -866,7 +900,7 @@ class XTream:
                     if not skip_stream:
                         # Some channels have no group,
                         # so let's add them to the catch all group
-                        if stream_channel["category_id"] == "":
+                        if not stream_channel["category_id"]:
                             stream_channel["category_id"] = "9999"
                         elif stream_channel["category_id"] != "1":
                             pass
@@ -943,6 +977,7 @@ class XTream:
                 print(f" - Could not load {loading_stream_type} Streams")
 
             self.state["loaded"] = True
+        return True
 
     def _save_to_file_skipped_streams(self, stream_channel: Channel):
 
@@ -1130,16 +1165,20 @@ class XTream:
         return self._get_request(url)
 
     # GET SERIES Info
-    def _load_series_info_by_id_from_provider(self, series_id: str):
+    def _load_series_info_by_id_from_provider(self, series_id: str, return_type: str = "DICT"):
         """Gets informations about a Serie
 
         Args:
             series_id (str): Serie ID as described in Group
+            return_type (str, optional): Output format, 'DICT' or 'JSON'. Defaults to "DICT".
 
         Returns:
             [type]: JSON if successfull, otherwise None
         """
-        return self._get_request(self.get_series_info_URL_by_ID(series_id))
+        data = self._get_request(self.get_series_info_URL_by_ID(series_id))
+        if return_type == "JSON":
+            return json.dumps(data, ensure_ascii=False)
+        return data
 
     # The seasons array, might be filled or might be completely empty.
     # If it is not empty, it will contain the cover, overview and the air date

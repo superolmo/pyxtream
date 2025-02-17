@@ -8,10 +8,10 @@ from time import sleep
 
 from pyxtream import XTream, __version__
 
-PROVIDER_NAME = ""
-PROVIDER_URL = ""
-PROVIDER_USERNAME = ""
-PROVIDER_PASSWORD = ""
+PROVIDER_NAME = "Alibaba"
+PROVIDER_URL = "http://fqcnndg.mexamo.xyz:80"
+PROVIDER_USERNAME = "9769452694"
+PROVIDER_PASSWORD = "5301927423"
 
 if PROVIDER_URL == "" or PROVIDER_USERNAME == "" or PROVIDER_PASSWORD == "":
     print("Please edit this file with the provider credentials")
@@ -48,7 +48,7 @@ xt = XTream(
     PROVIDER_PASSWORD,
     PROVIDER_URL,
     reload_time_sec=60*60*8,
-    debug_flask=False
+    debug_flask=True
     )
 
 sleep(0.5)
@@ -91,7 +91,8 @@ while True:
             sys.exit(0)
 
         elif choice == 1:
-            xt.load_iptv()
+            if not xt.load_iptv():
+                print("Something wrong")
 
         elif choice == 2:
             search_string = input("Search for REGEX (ex. '^Destiny.*$'): ")
@@ -149,9 +150,12 @@ while True:
 
         elif choice == 8:
             series_id = input("Series ID: ")
-
-            data = xt._load_series_info_by_id_from_provider(series_id)
-            print(data)
+            # Load series seasons and episodes
+            data = xt._load_series_info_by_id_from_provider(series_id, "JSON")
+            if data is not None:
+                print(data)
+            else:
+                print("No series found for that ID")
 
         elif choice == 9:
             stream_id = input("Stream ID: ")
