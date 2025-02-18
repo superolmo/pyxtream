@@ -17,6 +17,7 @@ if PROVIDER_URL == "" or PROVIDER_USERNAME == "" or PROVIDER_PASSWORD == "":
     print("Please edit this file with the provider credentials")
     sys.exit()
 
+
 def str2list(input_string: str) -> list:
 
     """Convert a string with comma delimited numbers into a python list of integers
@@ -27,7 +28,7 @@ def str2list(input_string: str) -> list:
     Returns:
         list: list of integers containing the commands
     """
-    # conver to the list
+    # convert to list
     output_list = input_string.split(",")
 
     # convert each element as integers
@@ -39,6 +40,7 @@ def str2list(input_string: str) -> list:
             pass
 
     return li
+
 
 print(f"pyxtream version {__version__}")
 
@@ -88,7 +90,6 @@ while True:
         print(f"\t[{choice}]: ")
 
         if choice == 0:
-            #xt.flaskapp.shutdown()
             sys.exit(0)
 
         elif choice == 1:
@@ -97,7 +98,7 @@ while True:
 
         elif choice == 2:
             search_string = input("Search for REGEX (ex. '^Destiny.*$'): ")
-            search_result_obj = xt.search_stream(search_string, stream_type=("movies","series"))
+            search_result_obj = xt.search_stream(search_string, stream_type=("movies", "series"))
             result_number = len(search_result_obj)
             print(f"\tFound {result_number} results")
             if result_number < 10:
@@ -110,7 +111,7 @@ while True:
         elif choice == 3:
             search_string = input("Search for text: ")
             search_result_obj = xt.search_stream(
-                rf"^.*{search_string}.*$", stream_type=("movies","series")
+                rf"^.*{search_string}.*$", stream_type=("movies", "series")
                 )
             result_number = len(search_result_obj)
             print(f"\tFound {result_number} results")
@@ -133,20 +134,20 @@ while True:
         elif choice == 5:
             url = input("Enter URL to download: ")
             filename = input("Enter Fullpath Filename: ")
-            xt._download_video_impl(url,filename)
+            xt._download_video_impl(url, filename)
 
         elif choice == 6:
             NUM_MOVIES = len(xt.movies_30days)
             print(f"Found {NUM_MOVIES} new movies in the past 30 days")
             if NUM_MOVIES < 20:
-                for i in range(0,NUM_MOVIES):
+                for i in range(0, NUM_MOVIES):
                     print(xt.movies_30days[i].title)
 
         elif choice == 7:
             NUM_MOVIES = len(xt.movies_7days)
             print(f"Found {NUM_MOVIES} new movies in the past 7 days")
             if NUM_MOVIES < 20:
-                for i in range(0,NUM_MOVIES):
+                for i in range(0, NUM_MOVIES):
                     print(xt.movies_7days[i].title)
 
         elif choice == 8:

@@ -502,7 +502,9 @@ class XTream:
         filename = ""
         for series_stream in self.series:
             if series_stream.series_id == stream_id:
-                url = f"{series_stream.url}/{series_stream.episodes["1"].id}.{series_stream.episodes["1"].container_extension}"
+                episode_object: Episode = series_stream.episodes["1"]
+                url = f"{series_stream.url}/{episode_object.id}."\
+                      f"{episode_object.container_extension}"
 
         for stream in self.movies:
             if stream.id == stream_id:
