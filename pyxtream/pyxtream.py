@@ -491,7 +491,7 @@ class XTream:
         """Download Video from Stream ID
 
         Args:
-            stream_id (int): Stirng identifing the stream ID
+            stream_id (int): String identifying the stream ID
 
         Returns:
             str: Absolute Path Filename where the file was saved. Empty if could not download
@@ -711,7 +711,7 @@ class XTream:
 
             my_data = None
 
-            # Get the enlapsed seconds since last file update
+            # Get the elapsed seconds since last file update
             file_age_sec = time.time() - osp.getmtime(full_filename)
             # If the file was updated less than the threshold time,
             # it means that the file is still fresh, we can load it.
@@ -739,7 +739,7 @@ class XTream:
             filename (str): Name of the file
 
         Returns:
-            bool: True if successfull, False if error
+            bool: True if successful, False if error
         """
         if data_list is None:
             return False
@@ -765,7 +765,7 @@ class XTream:
           Groups are for all three channel types, Live TV, VOD, and Series
 
         Returns:
-            bool: True if successfull, False if error
+            bool: True if successful, False if error
         """
         # If pyxtream has not authenticated the connection, return empty
         if self.state["authenticated"] is False:
@@ -905,7 +905,7 @@ class XTream:
                         elif stream_channel["category_id"] != "1":
                             pass
 
-                        # Find the first occurence of the group that the
+                        # Find the first occurrence of the group that the
                         # Channel or Stream is pointing to
                         the_group = next(
                             (x for x in self.groups if x.group_id == int(stream_channel["category_id"])),
@@ -1104,7 +1104,7 @@ class XTream:
             stream_type (str): Stream type can be Live, VOD, Series
 
         Returns:
-            [type]: JSON if successfull, otherwise None
+            [type]: JSON if successful, otherwise None
         """
         url = ""
         if stream_type == self.live_type:
@@ -1126,7 +1126,7 @@ class XTream:
             stream_type (str): Stream type can be Live, VOD, Series
 
         Returns:
-            [type]: JSON if successfull, otherwise None
+            [type]: JSON if successful, otherwise None
         """
         url = ""
         if stream_type == self.live_type:
@@ -1149,7 +1149,7 @@ class XTream:
             category_id ([type]): Category/Group ID.
 
         Returns:
-            [type]: JSON if successfull, otherwise None
+            [type]: JSON if successful, otherwise None
         """
         url = ""
 
@@ -1166,14 +1166,14 @@ class XTream:
 
     # GET SERIES Info
     def _load_series_info_by_id_from_provider(self, series_id: str, return_type: str = "DICT"):
-        """Gets informations about a Serie
+        """Gets information about a Serie
 
         Args:
             series_id (str): Serie ID as described in Group
             return_type (str, optional): Output format, 'DICT' or 'JSON'. Defaults to "DICT".
 
         Returns:
-            [type]: JSON if successfull, otherwise None
+            [type]: JSON if successful, otherwise None
         """
         data = self._get_request(self.get_series_info_URL_by_ID(series_id))
         if return_type == "JSON":
