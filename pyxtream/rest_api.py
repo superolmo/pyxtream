@@ -6,6 +6,7 @@ from os import path
 from flask import Flask
 from flask import Response as FlaskResponse
 
+
 class EndpointAction(object):
 
     response: FlaskResponse
@@ -22,13 +23,13 @@ class EndpointAction(object):
 
         handlers = {
             # Add handlers here
-            "stream_search_generic":    lambda: self._handle_search(args['term']),
-            "stream_search_with_type":  lambda: self._handle_search(args['term'], args.get('type')),
-            "download_stream":          lambda: self.action(int(args['stream_id'])),
+            "stream_search_generic": lambda: self._handle_search(args['term']),
+            "stream_search_with_type": lambda: self._handle_search(args['term'], args.get('type')),
+            "download_stream": lambda: self.action(int(args['stream_id'])),
             "download_stream_progress": lambda: self.action,
-            "get_last_7days":           lambda: self.action(),
-            "home":                     lambda: self.action,
-            "get_series":               lambda: self.action(int(args['series_id']), "JSON")
+            "get_last_7days": lambda: self.action(),
+            "home": lambda: self.action,
+            "get_series": lambda: self.action(int(args['series_id']), "JSON")
         }
 
         answer = handlers[self.function_name]()
@@ -43,6 +44,7 @@ class EndpointAction(object):
             stream_type = [stream_type] if stream_type else ("series", "movies", "channels")
             return self.action(regex_term, return_type='JSON', stream_type=stream_type)
         return self.action(regex_term, return_type='JSON')
+
 
 class FlaskWrap(Thread):
 
@@ -69,18 +71,18 @@ class FlaskWrap(Thread):
         Thread.__init__(self)
 
         # Configure Thread
-        self.name ="pyxtream REST API"
+        self.name = "pyxtream REST API"
         self.daemon = True
 
         # Load HTML Home Template if any
         if html_template_folder is not None:
-            self.home_template_file_name = path.join(html_template_folder,"index.html")
+            self.home_template_file_name = path.join(html_template_folder, "index.html")
             if path.isfile(self.home_template_file_name):
-                with open(self.home_template_file_name,'r', encoding="utf-8") as home_html:
+                with open(self.home_template_file_name, 'r', encoding="utf-8") as home_html:
                     self.home_template = home_html.read()
 
         # Add all endpoints
-        self.add_endpoint(endpoint='/', endpoint_name='home', handler=[self.home_template,"home"])
+        self.add_endpoint(endpoint='/', endpoint_name='home', handler=[self.home_template, "home"])
         self.add_endpoint(endpoint='/stream_search/<term>',
                           endpoint_name='stream_search_generic',
                           handler=[self.xt.search_stream, 'stream_search_generic']
@@ -91,19 +93,19 @@ class FlaskWrap(Thread):
                           )
         self.add_endpoint(endpoint='/download_stream/<stream_id>/',
                           endpoint_name='download_stream',
-                          handler=[self.xt.download_video,"download_stream"]
+                          handler=[self.xt.download_video, "download_stream"]
                           )
         self.add_endpoint(endpoint='/download_stream_progress/<stream_id>/',
                           endpoint_name='download_stream_progress',
-                          handler=[self.xt.download_progress,"download_stream_progress"]
+                          handler=[self.xt.download_progress, "download_stream_progress"]
                           )
         self.add_endpoint(endpoint='/get_last_7days',
                           endpoint_name='get_last_7days',
-                          handler=[self.xt.get_last_7days,"get_last_7days"]
+                          handler=[self.xt.get_last_7days, "get_last_7days"]
                           )
         self.add_endpoint(endpoint='/get_series/<series_id>',
                           endpoint_name='get_series',
-                          handler=[self.xt._load_series_info_by_id_from_provider,"get_series"]
+                          handler=[self.xt._load_series_info_by_id_from_provider, "get_series"]
                           )
 
     def run(self):
