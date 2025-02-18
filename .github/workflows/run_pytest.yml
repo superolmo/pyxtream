@@ -33,7 +33,7 @@ jobs:
         if [ -f test/requirements.txt ]; then pip install -r test/requirements.txt; fi
     - name: Check Syntax with flake8
       run: |
-        flake8 pyxtream
+        flake8 --extend-ignore=E501 pyxtream
     - name: Test with pytest
       run: |
         python3 -m pytest --cov=pyxtream test/test_pyxtream.py

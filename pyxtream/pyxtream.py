@@ -4,7 +4,7 @@ pyxtream
 
 Module handles downloading xtream data.
 
-Part of this content comes from 
+Part of this content comes from
 - https://github.com/chazlarson/py-xtream-codes/blob/master/xtream.py
 - https://github.com/linuxmint/hypnotix
 
@@ -215,9 +215,9 @@ class Episode:
         self.logo = series_info["cover"]
         self.logo_path = xtream._get_logo_local_path(self.logo)
 
-        self.url =  f"{xtream.server}/series/" \
-                    f"{xtream.authorization['username']}/" \
-                    f"{xtream.authorization['password']}/{self.id}.{self.container_extension}"
+        self.url = f"{xtream.server}/series/" \
+                   f"{xtream.authorization['username']}/" \
+                   f"{xtream.authorization['password']}/{self.id}.{self.container_extension}"
 
         # Check that the constructed URL is valid
         if not xtream._validate_url(self.url):
@@ -271,9 +271,9 @@ class Serie:
         if "genre" in series_info.keys():
             self.genre = series_info["genre"]
 
-        self.url =  f"{xtream.server}/series/" \
-                    f"{xtream.authorization['username']}/" \
-                    f"{xtream.authorization['password']}/{self.series_id}/"
+        self.url = f"{xtream.server}/series/" \
+                   f"{xtream.authorization['username']}/" \
+                   f"{xtream.authorization['password']}/{self.series_id}/"
 
     def export_json(self):
         jsondata = {}
@@ -283,6 +283,7 @@ class Serie:
 
         return jsondata
 
+
 class Season:
     # Required by Hypnotix
     name = ""
@@ -290,6 +291,7 @@ class Season:
     def __init__(self, name):
         self.name = name
         self.episodes = {}
+
 
 class XTream:
 
@@ -326,13 +328,13 @@ class XTream:
     hide_adult_content = False
 
     live_catch_all_group = Group(
-        {"category_id": "9999", "category_name":"xEverythingElse", "parent_id":0}, live_type
+        {"category_id": "9999", "category_name": "xEverythingElse", "parent_id": 0}, live_type
     )
     vod_catch_all_group = Group(
-        {"category_id": "9999", "category_name":"xEverythingElse", "parent_id":0}, vod_type
+        {"category_id": "9999", "category_name": "xEverythingElse", "parent_id": 0}, vod_type
     )
     series_catch_all_group = Group(
-        {"category_id": "9999", "category_name":"xEverythingElse", "parent_id":0}, series_type
+        {"category_id": "9999", "category_name": "xEverythingElse", "parent_id": 0}, series_type
     )
     # If the cached JSON file is older than threshold_time_sec then load a new
     # JSON dictionary from the provider
@@ -356,7 +358,7 @@ class XTream:
         validate_json: bool = False,
         enable_flask: bool = False,
         debug_flask: bool = True
-        ):
+            ):
         """Initialize Xtream Class
 
         Args:
@@ -378,9 +380,9 @@ class XTream:
 
         - Note 1: If it fails to authorize with provided username and password,
                 auth_data will be an empty dictionary.
-        - Note 2: The JSON validation option will take considerable amount of time and it should be 
+        - Note 2: The JSON validation option will take considerable amount of time and it should be
                   used only as a debug tool. The Xtream API JSON from the provider passes through a
-                  schema that represent the best available understanding of how the Xtream API 
+                  schema that represent the best available understanding of how the Xtream API
                   works.
         """
         self.server = provider_url
@@ -396,7 +398,7 @@ class XTream:
         self.app_fullpath = osp.dirname(osp.realpath(__file__))
 
         # prepare location of local html template
-        self.html_template_folder = osp.join(self.app_fullpath,"html")
+        self.html_template_folder = osp.join(self.app_fullpath, "html")
 
         # if the cache_path is specified, test that it is a directory
         if self.cache_path != "":
@@ -415,7 +417,7 @@ class XTream:
         if headers is not None:
             self.connection_headers = headers
         else:
-            self.connection_headers = {'User-Agent':"Wget/1.20.3 (linux-gnu)"}
+            self.connection_headers = {'User-Agent': "Wget/1.20.3 (linux-gnu)"}
 
         self.authenticate()
 
@@ -435,7 +437,7 @@ class XTream:
                 print("Web interface not running")
 
     def get_last_7days(self):
-        return json.dumps(self.movies_7days, default= lambda x:x.export_json())
+        return json.dumps(self.movies_7days, default=lambda x: x.export_json())
 
     def search_stream(self, keyword: str,
                       ignore_case: bool = True,
@@ -506,11 +508,11 @@ class XTream:
             if stream.id == stream_id:
                 url = stream.url
                 fn = f"{self._slugify(stream.name)}.{stream.raw['container_extension']}"
-                filename = osp.join(self.cache_path,fn)
+                filename = osp.join(self.cache_path, fn)
 
         # If the url was correctly built and file does not exists, start downloading
         if url != "":
-            if not self._download_video_impl(url,filename):
+            if not self._download_video_impl(url, filename):
                 return "Error"
 
         return filename
@@ -551,10 +553,10 @@ class XTream:
             # If there is an answer from the remote server
             if response.status_code in (200, 206):
                 # Get content type Binary or Text
-                content_type = response.headers.get('content-type',None)
+                content_type = response.headers.get('content-type', None)
 
                 # Get total playlist byte size
-                total_content_size = int(response.headers.get('content-length',None))
+                total_content_size = int(response.headers.get('content-length', None))
                 total_content_size_mb = total_content_size/mb_size
 
                 # Set downloaded size
@@ -571,9 +573,9 @@ class XTream:
                     with open(fullpath_filename, mode) as file:
 
                         # Grab data by block_bytes
-                        for data in response.iter_content(block_bytes,decode_unicode=False):
+                        for data in response.iter_content(block_bytes, decode_unicode=False):
                             downloaded_bytes += block_bytes
-                            progress(downloaded_bytes,total_content_size,"Downloading")
+                            progress(downloaded_bytes, total_content_size, "Downloading")
                             self.download_progress = downloaded_bytes
                             file.write(data)
 
@@ -662,7 +664,7 @@ class XTream:
                     i = 31
                 except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
                     time.sleep(1)
-                    print(f"{i} ", end='',flush=True)
+                    print(f"{i} ", end='', flush=True)
                     i += 1
 
             if r is not None:
@@ -787,7 +789,7 @@ class XTream:
             pass
 
         for loading_stream_type in (self.live_type, self.vod_type, self.series_type):
-            ## Get GROUPS
+            # Get GROUPS
 
             # Try loading local file
             dt = 0
@@ -798,13 +800,13 @@ class XTream:
                 # Load all Groups and save file locally
                 all_cat = self._load_categories_from_provider(loading_stream_type)
                 if all_cat is not None:
-                    self._save_to_file(all_cat,f"all_groups_{loading_stream_type}.json")
+                    self._save_to_file(all_cat, f"all_groups_{loading_stream_type}.json")
             dt = timer() - start
 
             # If we got the GROUPS data, show the statistics and load GROUPS
             if all_cat is not None:
                 print(f"{self.name}: Loaded {len(all_cat)} {loading_stream_type} Groups in {dt:.3f} seconds")
-                ## Add GROUPS to dictionaries
+                # Add GROUPS to dictionaries
 
                 # Add the catch-all-errors group
                 if loading_stream_type == self.live_type:
@@ -830,7 +832,7 @@ class XTream:
                 print(f" - Could not load {loading_stream_type} Groups")
                 break
 
-            ## Get Streams
+            # Get Streams
 
             # Try loading local file
             dt = 0
@@ -840,13 +842,13 @@ class XTream:
             if all_streams is None:
                 # Load all Streams and save file locally
                 all_streams = self._load_streams_from_provider(loading_stream_type)
-                self._save_to_file(all_streams,f"all_stream_{loading_stream_type}.json")
+                self._save_to_file(all_streams, f"all_stream_{loading_stream_type}.json")
             dt = timer() - start
 
             # If we got the STREAMS data, show the statistics and load Streams
             if all_streams is not None:
                 print(f"{self.name}: Loaded {len(all_streams)} {loading_stream_type} Streams in {dt:.3f} seconds")
-                ## Add Streams to dictionaries
+                # Add Streams to dictionaries
 
                 skipped_adult_content = 0
                 skipped_no_name_content = 0
@@ -925,7 +927,6 @@ class XTream:
                             elif loading_stream_type == self.series_type:
                                 group_title = self.series_catch_all_group.name
                                 the_group = self.series_catch_all_group
-
 
                         if loading_stream_type == self.series_type:
                             # Load all Series
@@ -1011,7 +1012,6 @@ class XTream:
 
         for series_info in series_seasons["seasons"]:
             season_name = series_info["name"]
-            season_key = series_info['season_number']
             season = Season(season_name)
             get_series.seasons[season_name] = season
             if "episodes" in series_seasons.keys():
@@ -1207,7 +1207,7 @@ class XTream:
     def allEpg(self):
         return self._get_request(self.get_all_epg_URL())
 
-    ## URL-builder methods
+    # URL-builder methods
     def get_live_categories_URL(self) -> str:
         return f"{self.base_url}&action=get_live_categories"
 
