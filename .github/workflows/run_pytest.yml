@@ -27,7 +27,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pytest pytest-cov pdoc
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        if [ -f test/requirements.txt ]; then pip install -r test/requirements.txt; fi
     - name: Test with pytest
       run: |
         python3 -m pytest --cov=pyxtream test/test_pyxtream.py
