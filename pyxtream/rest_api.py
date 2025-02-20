@@ -26,14 +26,14 @@ class EndpointAction(object):
             "stream_search_generic": lambda: self._handle_search(args['term']),
             "stream_search_with_type": lambda: self._handle_search(args['term'], args.get('type')),
             "download_stream": lambda: self.action(int(args['stream_id'])),
-            "download_stream_progress": lambda: self.action,
+            "get_download_progress": lambda: self.action(int(args['stream_id'])),
             "get_last_7days": lambda: self.action(),
             "home": lambda: self.action,
             "get_series": lambda: self.action(int(args['series_id']), "JSON")
         }
 
         answer = handlers[self.function_name]()
-        content_type = content_types['json'] if self.function_name not in ('home', 'download_stream_progress') else content_types['html']
+        content_type = content_types['json'] if self.function_name not in ('home') else content_types['html']
 
         self.response = FlaskResponse(answer, status=200, headers={"Content-Type": content_type})
         return self.response
@@ -95,9 +95,9 @@ class FlaskWrap(Thread):
                           endpoint_name='download_stream',
                           handler=[self.xt.download_video, "download_stream"]
                           )
-        self.add_endpoint(endpoint='/download_stream_progress/<stream_id>/',
-                          endpoint_name='download_stream_progress',
-                          handler=[self.xt.download_progress, "download_stream_progress"]
+        self.add_endpoint(endpoint='/get_download_progress/<stream_id>/',
+                          endpoint_name='get_download_progress',
+                          handler=[self.xt.get_download_progress, "get_download_progress"]
                           )
         self.add_endpoint(endpoint='/get_last_7days',
                           endpoint_name='get_last_7days',

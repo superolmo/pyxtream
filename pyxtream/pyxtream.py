@@ -343,7 +343,7 @@ class XTream:
     validate_json: bool = True
 
     # Used by REST API to get download progress
-    download_progress = 0
+    download_progress: dict = {'StreamId': 0, 'Total': 0, 'Progress': 0}
 
     def __init__(
         self,
@@ -435,6 +435,10 @@ class XTream:
                 self.flaskapp.start()
             else:
                 print("Web interface not running")
+
+    def get_download_progress(self, stream_id: int = None):
+        # TODO: Add check for stream specific ID
+        return json.dumps(self.download_progress)
 
     def get_last_7days(self):
         return json.dumps(self.movies_7days, default=lambda x: x.export_json())
@@ -563,7 +567,8 @@ class XTream:
 
                 # Set downloaded size
                 downloaded_bytes = 0
-                self.download_progress = 0
+                self.download_progress['Total'] = total_content_size
+                self.download_progress['Progress'] = 0
 
                 # Set stream blocks
                 block_bytes = int(4*mb_size)     # 4 MB
@@ -578,7 +583,7 @@ class XTream:
                         for data in response.iter_content(block_bytes, decode_unicode=False):
                             downloaded_bytes += block_bytes
                             progress(downloaded_bytes, total_content_size, "Downloading")
-                            self.download_progress = downloaded_bytes
+                            self.download_progress['Progress'] = downloaded_bytes
                             file.write(data)
 
                     ret_code = True
