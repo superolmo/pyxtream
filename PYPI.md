@@ -2,7 +2,7 @@
 
 ```shell
 poetry lock
-poetry install --sync
+poetry sync
 poetry debug resolve
 ```
 

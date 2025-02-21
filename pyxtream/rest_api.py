@@ -1,45 +1,50 @@
 
 # Import Flask to control IPTV via REST API
 from threading import Thread
-
-from flask import Flask
-from flask import Response as FlaskResponse
-from flask import request as FlaskRequest
 import logging
 from os import path
+from flask import Flask
+from flask import Response as FlaskResponse
 
 
 class EndpointAction(object):
+
+    response: FlaskResponse
 
     def __init__(self, action, function_name):
         self.function_name = function_name
         self.action = action
 
     def __call__(self, **args):
+        content_types = {
+            'html': "text/html; charset=utf-8",
+            'json': "text/json; charset=utf-8"
+        }
 
-        if args != {}:
+        handlers = {
+            # Add handlers here
+            "stream_search_generic": lambda: self._handle_search(args['term']),
+            "stream_search_with_type": lambda: self._handle_search(args['term'], args.get('type')),
+            "download_stream": lambda: self.action(int(args['stream_id'])),
+            "get_download_progress": lambda: self.action(int(args['stream_id'])),
+            "get_last_7days": lambda: self.action(),
+            "home": lambda: self.action,
+            "get_series": lambda: self.action(int(args['series_id']), "JSON")
+        }
 
-            #Stream Search
-            if self.function_name == "stream_search":
-                regex_term = r"^.*{}.*$".format(args['term'])
-                answer = self.action(regex_term,  return_type = 'JSON')
+        answer = handlers[self.function_name]()
+        content_type = content_types['json'] if self.function_name not in ('home') else content_types['html']
 
-            # Download stream
-            elif self.function_name == "download_stream":
-                answer = self.action(int(args['stream_id']))
-
-            else:
-                print(args)
-                answer = "Hello"
-
-            self.response = FlaskResponse(answer, status=200, headers={})
-            self.response.headers["Content-Type"] = "text/json; charset=utf-8"
-        else:
-            answer = self.action
-            self.response = FlaskResponse(answer, status=200, headers={})
-            self.response.headers["Content-Type"] = "text/html; charset=utf-8"
-
+        self.response = FlaskResponse(answer, status=200, headers={"Content-Type": content_type})
         return self.response
+
+    def _handle_search(self, term, stream_type=None):
+        regex_term = r"^.*{}.*$".format(term)
+        if stream_type:
+            stream_type = [stream_type] if stream_type else ("series", "movies", "channels")
+            return self.action(regex_term, return_type='JSON', stream_type=stream_type)
+        return self.action(regex_term, return_type='JSON')
+
 
 class FlaskWrap(Thread):
 
@@ -50,7 +55,9 @@ class FlaskWrap(Thread):
     host: str = ""
     port: int = 0
 
-    def __init__(self, name, xtream: object, html_template_folder: str = None, host: str = "0.0.0.0", port: int = 5000, debug: bool = True):
+    def __init__(self, name, xtream: object, html_template_folder: str = None,
+                 host: str = "0.0.0.0", port: int = 5000, debug: bool = True
+                 ):
 
         log = logging.getLogger('werkzeug')
         log.setLevel(logging.ERROR)
@@ -64,20 +71,42 @@ class FlaskWrap(Thread):
         Thread.__init__(self)
 
         # Configure Thread
-        self.name ="pyxtream REST API"
+        self.name = "pyxtream REST API"
         self.daemon = True
 
         # Load HTML Home Template if any
         if html_template_folder is not None:
-            self.home_template_file_name = path.join(html_template_folder,"index.html")
+            self.home_template_file_name = path.join(html_template_folder, "index.html")
             if path.isfile(self.home_template_file_name):
-                with open(self.home_template_file_name,'r', encoding="utf-8") as home_html:
+                with open(self.home_template_file_name, 'r', encoding="utf-8") as home_html:
                     self.home_template = home_html.read()
 
         # Add all endpoints
-        self.add_endpoint(endpoint='/', endpoint_name='home', handler=[self.home_template,""])
-        self.add_endpoint(endpoint='/stream_search/<term>', endpoint_name='stream_search', handler=[self.xt.search_stream,"stream_search"])
-        self.add_endpoint(endpoint='/download_stream/<stream_id>/', endpoint_name='download_stream', handler=[self.xt.download_video,"download_stream"])
+        self.add_endpoint(endpoint='/', endpoint_name='home', handler=[self.home_template, "home"])
+        self.add_endpoint(endpoint='/stream_search/<term>',
+                          endpoint_name='stream_search_generic',
+                          handler=[self.xt.search_stream, 'stream_search_generic']
+                          )
+        self.add_endpoint(endpoint='/stream_search/<term>/<type>',
+                          endpoint_name='stream_search_with_type',
+                          handler=[self.xt.search_stream, 'stream_search_with_type']
+                          )
+        self.add_endpoint(endpoint='/download_stream/<stream_id>/',
+                          endpoint_name='download_stream',
+                          handler=[self.xt.download_video, "download_stream"]
+                          )
+        self.add_endpoint(endpoint='/get_download_progress/<stream_id>/',
+                          endpoint_name='get_download_progress',
+                          handler=[self.xt.get_download_progress, "get_download_progress"]
+                          )
+        self.add_endpoint(endpoint='/get_last_7days',
+                          endpoint_name='get_last_7days',
+                          handler=[self.xt.get_last_7days, "get_last_7days"]
+                          )
+        self.add_endpoint(endpoint='/get_series/<series_id>',
+                          endpoint_name='get_series',
+                          handler=[self.xt._load_series_info_by_id_from_provider, "get_series"]
+                          )
 
     def run(self):
         self.app.run(debug=self.debug, use_reloader=False, host=self.host, port=self.port)
