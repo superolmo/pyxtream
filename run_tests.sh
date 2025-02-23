@@ -1,1 +1,1 @@
-poetry run pytest --cov=pyxtream pyxtream
+poetry run pytest --cov=pyxtream test/test_pyxtream.py
