@@ -2,7 +2,7 @@
 
 ```shell
 poetry lock
-poetry install --sync
+poetry sync
 poetry debug resolve
 ```
 
@@ -35,6 +35,8 @@ poetry publish -u __token__ -p <token>
 ```
 
 # Upload to PYPI
+
+References: https://www.digitalocean.com/community/tutorials/how-to-publish-python-packages-to-pypi-using-poetry-on-ubuntu-22-04
 
 ```shell
 poetry publish

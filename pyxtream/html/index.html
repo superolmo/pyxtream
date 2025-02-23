@@ -7,20 +7,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>PyXtream Viewer</title>
     <!-- Add icon library -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"></script>
-    <link href="https://unpkg.com/video.js@7/dist/video-js.min.css" rel="stylesheet" />
-    <link href="https://unpkg.com/@videojs/themes@1/dist/city/index.css" rel="stylesheet" />
-    <script src="https://vjs.zencdn.net/7.17.0/video.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/video.js@8.21.0/dist/video-js.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/@videojs/themes@1.0.1/dist/city/index.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/video.js@8.21.0/dist/video.min.js"></script>
     <style>
         .card {
         width: 200px;
         margin: 10px;
-        padding: 10px;
+        padding: 8px;
         }
 
         .card-img-top {
-        height: 150px;
         width: 100%;
         object-fit: cover;
         }
@@ -33,14 +33,48 @@
         font-size: 0.8rem;
         }
 
-        .play_movie {
-        font-size: 0.8rem;
+        .download_movie {
+        font-size: 1.2rem;
         padding: 5px;
+        width: 40%;
+        }
+
+        .play_movie {
+        font-size: 1.2rem;
+        padding: 5px;
+        width: 40%;
         }
 
         .open_series {
-        font-size: 0.8rem;
+        font-size: 1.2rem;
         padding: 5px;
+        }
+
+        .ribbon {
+        font-size: 12px;
+        font-weight: bold;
+        color: #fff;
+        position: absolute;
+        top: 0;
+        right: 0;
+        line-height: 1.8;
+        padding-inline: 1lh;
+        clip-path: polygon(
+            100% 100%,0 100%,999px calc(100% - 999px),calc(100% - 999px) calc(100% - 999px));
+        transform: translate(calc((1 - cos(45deg))*100%), -100%) rotate(45deg);
+        transform-origin: 0% 100%;
+        }
+
+        .blue {
+            background-color: #1571bd; /* the main color  */
+        }
+
+        .purple {
+            background-color: #BD1550; /* the main color  */
+        }
+
+        .green {
+            background-color: #387505; /* the main color  */
         }
     </style>
 </head>
@@ -53,23 +87,19 @@
                 <button class="btn btn-secondary dropdown-toggle" type="button" id="countryDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                   All Countries
                 </button>
-                <ul class="dropdown-menu" aria-labelledby="countryDropdown">
-                 <li><a class="dropdown-item" href="#" onclick="updateDropDownButtonLabel('All Countries')">All Countries</a></li>
-                 <li><a class="dropdown-item" href="#" onclick="updateDropDownButtonLabel('Arabic')">Arabic</a></li>
-                 <li><a class="dropdown-item" href="#" onclick="updateDropDownButtonLabel('Brazil')">Brazil</a></li>
-                 <li><a class="dropdown-item" href="#" onclick="updateDropDownButtonLabel('English')">English</a></li>
-                 <li><a class="dropdown-item" href="#" onclick="updateDropDownButtonLabel('French')">French</a></li>
-                 <li><a class="dropdown-item" href="#" onclick="updateDropDownButtonLabel('India')">India</a></li>
-                 <li><a class="dropdown-item" href="#" onclick="updateDropDownButtonLabel('Italy')">Italy</a></li>
-                 <li><a class="dropdown-item" href="#" onclick="updateDropDownButtonLabel('Japan')">Japan</a></li>
-                 <li><a class="dropdown-item" href="#" onclick="updateDropDownButtonLabel('Portugal')">Portugal</a></li>
-                 <li><a class="dropdown-item" href="#" onclick="updateDropDownButtonLabel('Spain')">Spain</a></li>
-                </ul>
+                <ul class="dropdown-menu" aria-labelledby="countryDropdown"></ul>
               </div>
             <div class="d-flex">
                 <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search" id="searchString_INPUT"
                 style="width: 150px;">
+                <select class="form-select me-2" id="searchStringType_INPUT" style="width: 150px;">
+                    <option value="">All Types</option>
+                    <option value="movies">Movies</option>
+                    <option value="series">Series</option>
+                    <option value="channels">Channels</option>
+                </select>
                 <button class="btn btn-outline-success" type="button" id="searchString_BTN">Search</button>
+                <button class="btn btn-outline-info ms-2" type="button" id="last7days_BTN">7 Days</button>
             </div>
         </div>
     </nav>
@@ -88,14 +118,40 @@
                 </div>
             </div>
         </div>
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center" id="pagination">
+                <!-- Pagination items will be dynamically added here -->
+            </ul>
+        </nav>
     </main>
 </body>
 
 </html>
 <script>
-var html_card = `
+var html_card_series = `
     <div class="card">
-        <div class="face front">
+        <div class="face front d-flex flex-column" style="height: 100%">
+            <div class='ribbon'></div>
+            <div class="embed-responsive">
+                <img class="card-img-top" src="" alt="Stream Poster">
+            </div>
+            <div class="card-body text-center">
+                <h5 class="card-title" id="stream_title"></h5>
+                <p class="card-text"></p>
+            </div>
+            <div class="card-footer text-center">
+                <button class="btn btn-lg btn-block text-nowrap open_series" 
+                        id="open_series_btn" data-bs-toggle="tooltip" title="">
+                    <i class="bi bi-folder2-open"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+`;
+var html_card_movie = `
+    <div class="card">
+        <div class="face front d-flex flex-column" style="height: 100%">
+            <div class='ribbon'></div>
             <div class="embed-responsive">
                 <img class="card-img-top" src="" alt="Stream Poster">
             </div>
@@ -106,16 +162,301 @@ var html_card = `
             <div class="card-footer text-center">
                 <button class="btn btn-dark btn-lg btn-block text-nowrap play_movie" 
                         id="play_video_btn" data-bs-toggle="tooltip" title="">
-                    <i class="bi bi-play-circle"></i> Play Movie
+                    <i class="bi bi-play-circle"></i>
                 </button>
-                <button class="btn btn-lg btn-block text-nowrap open_series" 
-                        id="open_series_btn" data-bs-toggle="tooltip" title="">
-                    <i class="bi bi-play-circle"></i> Open Series
+                <button class="btn btn-dark btn-lg btn-block text-nowrap download_movie" 
+                        id="download_btn" data-bs-toggle="tooltip" title="Download">
+                    <i class="bi bi-download"></i>
                 </button>
             </div>
         </div>
     </div>
 `;
+var ribbon_div = "<div class='ribbon'></div>";
+
+var session_data = []
+var session_paging = {"currentPage": 1, "itemsPerPage": 40, "totalPages": 1}
+
+var isoCountries = {
+    'AF' : 'Afghanistan',
+    'AX' : 'Aland Islands',
+    'AL' : 'Albania',
+    'DZ' : 'Algeria',
+    'AS' : 'American Samoa',
+    'AD' : 'Andorra',
+    'AO' : 'Angola',
+    'AI' : 'Anguilla',
+    'AQ' : 'Antarctica',
+    'AG' : 'Antigua And Barbuda',
+    'AR' : 'Argentina',
+    'AM' : 'Armenia',
+    'AW' : 'Aruba',
+    'AU' : 'Australia',
+    'AT' : 'Austria',
+    'AZ' : 'Azerbaijan',
+    'BS' : 'Bahamas',
+    'BH' : 'Bahrain',
+    'BD' : 'Bangladesh',
+    'BB' : 'Barbados',
+    'BY' : 'Belarus',
+    'BE' : 'Belgium',
+    'BZ' : 'Belize',
+    'BJ' : 'Benin',
+    'BM' : 'Bermuda',
+    'BT' : 'Bhutan',
+    'BO' : 'Bolivia',
+    'BA' : 'Bosnia And Herzegovina',
+    'BW' : 'Botswana',
+    'BV' : 'Bouvet Island',
+    'BR' : 'Brazil',
+    'IO' : 'British Indian Ocean Territory',
+    'BN' : 'Brunei Darussalam',
+    'BG' : 'Bulgaria',
+    'BF' : 'Burkina Faso',
+    'BI' : 'Burundi',
+    'KH' : 'Cambodia',
+    'CM' : 'Cameroon',
+    'CA' : 'Canada',
+    'CV' : 'Cape Verde',
+    'KY' : 'Cayman Islands',
+    'CF' : 'Central African Republic',
+    'TD' : 'Chad',
+    'CL' : 'Chile',
+    'CN' : 'China',
+    'CX' : 'Christmas Island',
+    'CC' : 'Cocos (Keeling) Islands',
+    'CO' : 'Colombia',
+    'KM' : 'Comoros',
+    'CG' : 'Congo',
+    'CD' : 'Congo, Democratic Republic',
+    'CK' : 'Cook Islands',
+    'CR' : 'Costa Rica',
+    'CI' : 'Cote D\'Ivoire',
+    'HR' : 'Croatia',
+    'CU' : 'Cuba',
+    'CY' : 'Cyprus',
+    'CZ' : 'Czech Republic',
+    'DK' : 'Denmark',
+    'DJ' : 'Djibouti',
+    'DM' : 'Dominica',
+    'DO' : 'Dominican Republic',
+    'EC' : 'Ecuador',
+    'EG' : 'Egypt',
+    'SV' : 'El Salvador',
+    'GQ' : 'Equatorial Guinea',
+    'ER' : 'Eritrea',
+    'EE' : 'Estonia',
+    'ET' : 'Ethiopia',
+    'FK' : 'Falkland Islands (Malvinas)',
+    'FO' : 'Faroe Islands',
+    'FJ' : 'Fiji',
+    'FI' : 'Finland',
+    'FR' : 'France',
+    'GF' : 'French Guiana',
+    'PF' : 'French Polynesia',
+    'TF' : 'French Southern Territories',
+    'GA' : 'Gabon',
+    'GM' : 'Gambia',
+    'GE' : 'Georgia',
+    'DE' : 'Germany',
+    'GH' : 'Ghana',
+    'GI' : 'Gibraltar',
+    'GR' : 'Greece',
+    'GL' : 'Greenland',
+    'GD' : 'Grenada',
+    'GP' : 'Guadeloupe',
+    'GU' : 'Guam',
+    'GT' : 'Guatemala',
+    'GG' : 'Guernsey',
+    'GN' : 'Guinea',
+    'GW' : 'Guinea-Bissau',
+    'GY' : 'Guyana',
+    'HT' : 'Haiti',
+    'HM' : 'Heard Island & Mcdonald Islands',
+    'VA' : 'Holy See (Vatican City State)',
+    'HN' : 'Honduras',
+    'HK' : 'Hong Kong',
+    'HU' : 'Hungary',
+    'IS' : 'Iceland',
+    'IN' : 'India',
+    'ID' : 'Indonesia',
+    'IR' : 'Iran, Islamic Republic Of',
+    'IQ' : 'Iraq',
+    'IE' : 'Ireland',
+    'IM' : 'Isle Of Man',
+    'IL' : 'Israel',
+    'IT' : 'Italy',
+    'JM' : 'Jamaica',
+    'JP' : 'Japan',
+    'JE' : 'Jersey',
+    'JO' : 'Jordan',
+    'KZ' : 'Kazakhstan',
+    'KE' : 'Kenya',
+    'KI' : 'Kiribati',
+    'KR' : 'Korea',
+    'KW' : 'Kuwait',
+    'KG' : 'Kyrgyzstan',
+    'LA' : 'Lao People\'s Democratic Republic',
+    'LV' : 'Latvia',
+    'LB' : 'Lebanon',
+    'LS' : 'Lesotho',
+    'LR' : 'Liberia',
+    'LY' : 'Libyan Arab Jamahiriya',
+    'LI' : 'Liechtenstein',
+    'LT' : 'Lithuania',
+    'LU' : 'Luxembourg',
+    'MO' : 'Macao',
+    'MK' : 'Macedonia',
+    'MG' : 'Madagascar',
+    'MW' : 'Malawi',
+    'MY' : 'Malaysia',
+    'MV' : 'Maldives',
+    'ML' : 'Mali',
+    'MT' : 'Malta',
+    'MH' : 'Marshall Islands',
+    'MQ' : 'Martinique',
+    'MR' : 'Mauritania',
+    'MU' : 'Mauritius',
+    'YT' : 'Mayotte',
+    'MX' : 'Mexico',
+    'FM' : 'Micronesia, Federated States Of',
+    'MD' : 'Moldova',
+    'MC' : 'Monaco',
+    'MN' : 'Mongolia',
+    'ME' : 'Montenegro',
+    'MS' : 'Montserrat',
+    'MA' : 'Morocco',
+    'MZ' : 'Mozambique',
+    'MM' : 'Myanmar',
+    'NA' : 'Namibia',
+    'NR' : 'Nauru',
+    'NP' : 'Nepal',
+    'NL' : 'Netherlands',
+    'AN' : 'Netherlands Antilles',
+    'NC' : 'New Caledonia',
+    'NZ' : 'New Zealand',
+    'NI' : 'Nicaragua',
+    'NE' : 'Niger',
+    'NG' : 'Nigeria',
+    'NU' : 'Niue',
+    'NF' : 'Norfolk Island',
+    'MP' : 'Northern Mariana Islands',
+    'NO' : 'Norway',
+    'OM' : 'Oman',
+    'PK' : 'Pakistan',
+    'PW' : 'Palau',
+    'PS' : 'Palestinian Territory, Occupied',
+    'PA' : 'Panama',
+    'PG' : 'Papua New Guinea',
+    'PY' : 'Paraguay',
+    'PE' : 'Peru',
+    'PH' : 'Philippines',
+    'PN' : 'Pitcairn',
+    'PL' : 'Poland',
+    'PT' : 'Portugal',
+    'PR' : 'Puerto Rico',
+    'QA' : 'Qatar',
+    'RE' : 'Reunion',
+    'RO' : 'Romania',
+    'RU' : 'Russian Federation',
+    'RW' : 'Rwanda',
+    'BL' : 'Saint Barthelemy',
+    'SH' : 'Saint Helena',
+    'KN' : 'Saint Kitts And Nevis',
+    'LC' : 'Saint Lucia',
+    'MF' : 'Saint Martin',
+    'PM' : 'Saint Pierre And Miquelon',
+    'VC' : 'Saint Vincent And Grenadines',
+    'WS' : 'Samoa',
+    'SM' : 'San Marino',
+    'ST' : 'Sao Tome And Principe',
+    'SA' : 'Saudi Arabia',
+    'SN' : 'Senegal',
+    'RS' : 'Serbia',
+    'SC' : 'Seychelles',
+    'SL' : 'Sierra Leone',
+    'SG' : 'Singapore',
+    'SK' : 'Slovakia',
+    'SI' : 'Slovenia',
+    'SB' : 'Solomon Islands',
+    'SO' : 'Somalia',
+    'ZA' : 'South Africa',
+    'GS' : 'South Georgia And Sandwich Isl.',
+    'ES' : 'Spain',
+    'LK' : 'Sri Lanka',
+    'SD' : 'Sudan',
+    'SR' : 'Suriname',
+    'SJ' : 'Svalbard And Jan Mayen',
+    'SZ' : 'Swaziland',
+    'SE' : 'Sweden',
+    'CH' : 'Switzerland',
+    'SY' : 'Syrian Arab Republic',
+    'TW' : 'Taiwan',
+    'TJ' : 'Tajikistan',
+    'TZ' : 'Tanzania',
+    'TH' : 'Thailand',
+    'TL' : 'Timor-Leste',
+    'TG' : 'Togo',
+    'TK' : 'Tokelau',
+    'TO' : 'Tonga',
+    'TT' : 'Trinidad And Tobago',
+    'TN' : 'Tunisia',
+    'TR' : 'Turkey',
+    'TM' : 'Turkmenistan',
+    'TC' : 'Turks And Caicos Islands',
+    'TV' : 'Tuvalu',
+    'UG' : 'Uganda',
+    'UA' : 'Ukraine',
+    'AE' : 'United Arab Emirates',
+    'GB' : 'United Kingdom',
+    'US' : 'United States',
+    'UM' : 'United States Outlying Islands',
+    'UY' : 'Uruguay',
+    'UZ' : 'Uzbekistan',
+    'VU' : 'Vanuatu',
+    'VE' : 'Venezuela',
+    'VN' : 'Viet Nam',
+    'VG' : 'Virgin Islands, British',
+    'VI' : 'Virgin Islands, U.S.',
+    'WF' : 'Wallis And Futuna',
+    'EH' : 'Western Sahara',
+    'YE' : 'Yemen',
+    'ZM' : 'Zambia',
+    'ZW' : 'Zimbabwe'
+};
+
+function getCountryName (countryCode) {
+    if (isoCountries.hasOwnProperty(countryCode)) {
+        return isoCountries[countryCode];
+    } else {
+        return countryCode;
+    }
+}
+
+function generateCountryDropdown() {
+    const countries = [
+        "All Countries", "Arabic", "Brazil", "English", 
+        "French", "India", "Italy", "Japan", "Portugal", "Spain"
+    ];
+    
+    const dropdown = document.getElementById('countryDropdown');
+    const dropdownMenu = dropdown.nextElementSibling;
+    
+    // Clear existing items
+    dropdownMenu.innerHTML = '';
+    
+    // Add new items
+    countries.forEach(country => {
+        const item = document.createElement('li');
+        item.innerHTML = `
+            <a class="dropdown-item" href="#" 
+               onclick="updateDropDownButtonLabel('${country}')">
+                ${country}
+            </a>
+        `;
+        dropdownMenu.appendChild(item);
+    });
+}
 
 /**
  * Changes a abbreviated name of a country or region and returns the longer
@@ -127,6 +468,7 @@ function shortToLongLanguage(short) {
     ret_value = "";
     switch (short) {
         case "AR": ret_value = "Arabic"; break;
+        case "ALB": ret_value = "Albania"; break;
         case "BR": ret_value = "Brazil"; break;
         case "EN": ret_value = "English"; break;
         case "FR": ret_value = "French"; break;
@@ -135,11 +477,27 @@ function shortToLongLanguage(short) {
         case "JP": ret_value = "Japan"; break;
         case "PT": ret_value = "Portugal"; break;
         case "ES": ret_value = "Spain"; break;
+        case "TR": ret_value = "Turkey"; break;
         default:
             ret_value = short;
     }
     return ret_value;
 };
+
+function convertUnixTimeToHumanReadable(unixTimestamp) {
+  // Convert to milliseconds
+  const milliseconds = unixTimestamp * 1000; 
+
+  // Create a Date object
+  const date = new Date(milliseconds);
+
+  // Format the date and time
+  const formattedDate = date.toLocaleDateString(); 
+  const formattedTime = date.toLocaleTimeString(); 
+
+  // Return the formatted string
+  return `${formattedDate}`;
+}
 
 /**
  * Cleans up an HTML card
@@ -161,28 +519,87 @@ function htmlToElement(html) {
 function buildMovieCard(item)
 {
     var page_country = document.getElementById("countryDropdown").value;
-
-    var card = htmlToElement(html_card);
-    var card_front = card.querySelector('.front');
-    var card_back = card.querySelector('.back');
     var card_info = "";
+
     /*** Get all the card content from item object ***/
     switch (item.stream_type) {
-        case "movie":
         case "live":
-        case "created_live": 
+        case "created_live":
+
+// added: "1715964817"
+// category_id: "834"
+// container_extension: "mp4"
+// custom_sid: ""
+// direct_source: ""
+// is_adult: 0
+// logo_path: "/home/superolmo/.xtream-cache/alibaba-dxxm3lldjgrc50i5rhvfqziskan_big.jpg"
+// name: "EN| Pompeii"
+// num: 8611
+// rating: "5.528"
+// rating_5based: 2.8
+// stream_icon: "http://a985.xyz:900/images/dxxM3lLDjGRC50i5rhvfQziskAN_big.jpg"
+// stream_id: 401208728
+// stream_type: "movie"
+// url: "http://fqcnndg.mexamo.xyz:80/movie/9769452694/5301927423/401208728.mp4"         
+        case "movie":
+            var card = htmlToElement(html_card_movie);
+            var card_front = card.querySelector('.front');
+            // var card_back = card.querySelector('.back');
+            var card_ribbon = card_front.querySelector('.ribbon');
+            if (item.stream_type == "movie")
+            {
+                card_ribbon.innerText = "Movie";
+                card_ribbon.classList.add('blue');
+            }
+            else
+            {
+                card_ribbon.innerText = "Live TV";
+                card_ribbon.classList.add('green');
+            }
             var stream_id = item.stream_id;
             var stream_icon = item.stream_icon;
             var is_adult = (item.is_adult == "1");
             var stream_extension = item.container_extension;
             var stream_url = item.url;
             var stream_type = item.stream_type;
+            var stream_added = convertUnixTimeToHumanReadable(item.added);
+
             break;
         case undefined:
             // If stream_id is undefined, it is not a Movie, it is a Series
+
+
+// cast: "Wendy Richard, Valerie Leon, Frankie Howerd, Elizabeth Larner, Jeanne Mockford, Max Adrian, Russell Hunter, Wallas Eaton"
+// category_id: "1502"
+// cover: "http://a985.xyz:900/images/zrRmxQH2Gr2pX3DP2Lu7LC2cdjy_big.jpg"
+// director: ""
+// episode_run_time: "30"
+// genre: "Comedy"
+// last_modified: "1675863716"
+// added: "1675863716"
+// logo_path: "/home/superolmo/.xtream-cache/alibaba-zrrmxqh2gr2px3dp2lu7lc2cdjy_big.jpg"
+// name: "EN| Up Pompeii!"
+// num: 12183
+// plot: "Up Pompeii! is a British television comedy series broadcast between 1969 and 1970, starring Frankie Howerd. The first series was written by Talbot Rothwell, a scriptwriter for the Carry On films, and the second series by Rothwell and Sid Colin. Two later specials were transmitted in 1975 and 1991."
+// rating: "8"
+// rating_5based: 4
+// releaseDate: "1970-03-30"
+// series_id: 16448
+// youtube_trailer: ""
+
+            var card = htmlToElement(html_card_series);
+            var card_front = card.querySelector('.front');
+            // var card_back = card.querySelector('.back');
+            var card_ribbon = card_front.querySelector('.ribbon');
+
+            card_ribbon.innerText = "Series";
+            card_ribbon.classList.add('purple');
+
+            // card_front.classList.add('d-none')
             var stream_id = item.series_id;
             var stream_icon = item.cover;
             var stream_type = "series";
+            var stream_added = convertUnixTimeToHumanReadable(item.added);
             break;
         default:
             // Not sure if we ever go into here
@@ -193,7 +610,7 @@ function buildMovieCard(item)
     var stream_name = item.name.split("|");
     if (stream_name.length > 1) {
         var stream_title = stream_name[1].trim();
-        var stream_country = shortToLongLanguage(stream_name[0].trim());
+        var stream_country = getCountryName(stream_name[0].trim());
     } else {
         var stream_title = stream_name[0].trim();
         var stream_country = ""
@@ -212,18 +629,18 @@ function buildMovieCard(item)
     
     if ((stream_type == "series") || (stream_type == undefined)) {
         card_front.querySelector("#open_series_btn").style.visibility = 'visible';
-        card_front.querySelector("#play_video_btn").style.visibility = 'hidden';
+        card_front.querySelector('.open_series').setAttribute("series_id", stream_id);
     } else {
         card_front.querySelector("#play_video_btn").style.visibility = 'visible';
-        card_front.querySelector("#open_series_btn").style.visibility = 'hidden';
         card_front.querySelector('.play_movie').setAttribute("movie_url", stream_url);
         card_front.querySelector('.play_movie').setAttribute("movie_extension", stream_extension);
+        card_front.querySelector('.download_movie').setAttribute("movie_id", stream_id);
     }
 
-    card_info = "[" + stream_type + "]-ID:[" + stream_id + "]";
+    card_info = "ID: " + stream_id + "<br>Added on: " + stream_added;
     if (stream_country != "")
     {
-        card_info = "[" + stream_country + "]-" + card_info;
+        card_info = card_info.replace("<br>"," [" + stream_country + "]<br>");
     }
     card_front.querySelector('.card-text').innerHTML = card_info
 
@@ -242,38 +659,119 @@ function buildMovieCard(item)
     return "";
 }
 
+function renderPagination() {
+    const pagination = document.getElementById('pagination');
+    pagination.innerHTML = '';
+
+    // Previous button
+    const prevItem = document.createElement('li');
+    prevItem.className = `page-item ${session_paging.currentPage === 1 ? 'disabled' : ''}`;
+    prevItem.innerHTML = `<a class="page-link" href="#" onclick="changePage(${session_paging.currentPage - 1})">Previous</a>`;
+    pagination.appendChild(prevItem);
+
+    // Page numbers
+    for (let i = 1; i <= session_paging.totalPages; i++) {
+        const pageItem = document.createElement('li');
+        pageItem.className = `page-item ${i === session_paging.currentPage ? 'active' : ''}`;
+        pageItem.innerHTML = `<a class="page-link" href="#" onclick="changePage(${i})">${i}</a>`;
+        pagination.appendChild(pageItem);
+    }
+
+    // Next button
+    const nextItem = document.createElement('li');
+    nextItem.className = `page-item ${session_paging.currentPage === session_paging.totalPages ? 'disabled' : ''}`;
+    nextItem.innerHTML = `<a class="page-link" href="#" onclick="changePage(${session_paging.currentPage + 1})">Next</a>`;
+    pagination.appendChild(nextItem);
+}
+
+function changePage(render_page) {
+    if (render_page < 1 || render_page > session_paging.totalPages) return;
+    buildAllCardsFromSearch(render_page);
+    session_paging.currentPage = render_page;
+    renderPagination();
+}
+
 /**
  * Send search string to server, get the result, and prepare output in search_result element
- * @param {string} search_string String to find in the stream
+ * @param {integer} page number
  */
 async function fetchSearchResults(search_string)
 {
-    const response = await fetch("http://localhost:5000/stream_search/" + document.getElementById("searchString_INPUT").value);
-    const data = await response.json();
+    // Exit if search string is empty
+    if (document.getElementById("searchString_INPUT").value == "")
+        return ""
+
+    url = "http://localhost:5000/stream_search/" + document.getElementById("searchString_INPUT").value
+
+    if (document.getElementById("searchStringType_INPUT").value != "")
+    {
+        url = url + "/" + document.getElementById("searchStringType_INPUT").value
+    }
+
+    const response = await fetch(url);
+    session_data = await response.json();
+    console.log(`Found ${session_data.length} streams`);
+
+    /* Sort session_data by field added ascending */
+    session_data.sort(function(a, b){
+        return b.added - a.added;
+    });
+
+    // Calculate pagination values
+    session_paging.totalPages = Math.ceil(session_data.length / session_paging.itemsPerPage);
+    session_paging.currentPage = 1;
     
+    buildAllCardsFromSearch(1);
+    renderPagination();
+}
+
+function buildAllCardsFromSearch(render_page = 1)
+{
+    // Calculate start and end indices
+    const startIndex = (render_page - 1) * session_paging.itemsPerPage;
+    const endIndex = startIndex + session_paging.itemsPerPage;
+    const pageData = session_data.slice(startIndex, endIndex);
+
     var searchResults = document.getElementById("search_results");
     searchResults.innerHTML = "<div class='row row-cols-1 row-cols-md-2 g-4'></div>"
     var searchResultsRow = searchResults.firstChild;
 
-    const numberOfRecords = data.length;
-    let currentRecordIndex = 0;
-
-    console.log(`Found ${numberOfRecords} streams. Showing only ${maximumRecordsToDisplay} records`);
-
     /* For every result stream, prepare and add a card to the search result div*/
-    data.every(item => {        
-        if (currentRecordIndex >= maximumRecordsToDisplay) return false;
-
+    pageData.every(item => {
         const newCard = buildMovieCard(item);
         if (newCard) {
             searchResultsRow.appendChild(newCard);
         }
-        currentRecordIndex++;    
         return true;
     });
 
-    /* After adding cards, I can attached the play movie event to all the cards */
-    search_results.addEventListener('click', play_video);
+    /* Attach to card body */
+    var cb_elements = document.getElementsByClassName("card-body");
+    for (i = 0; i < cb_elements.length; i++)
+    {
+        cb_elements[i].addEventListener('click', manage_card_events);
+    }
+
+    /* Attach to play movie */
+    var pm_elements = document.getElementsByClassName("play_movie");
+    for (i = 0; i < pm_elements.length; i++)
+    {
+        pm_elements[i].addEventListener('click', play_movie_action);
+    }
+
+    /* Attach to download movie */
+    var dm_elements = document.getElementsByClassName("download_movie");
+    for (i = 0; i < dm_elements.length; i++)
+    {
+        dm_elements[i].addEventListener('click',download_movie_action);
+    }
+
+    /* Attach to open series */
+    var os_elements = document.getElementsByClassName("open_series");
+    for (i = 0; i < os_elements.length; i++)
+    {
+        os_elements[i].addEventListener('click',open_series_action);
+    }
 }
 
 /**
@@ -292,58 +790,114 @@ function logKey(event) {
  * Get the stream URL from element and pass it to video player
  * @param {event} event Element event
  */
-function play_video(event) {
+ async function get_last_7days_action(event) {
+    url = "http://localhost:5000/get_last_7days"
 
-    if (event.target.nodeName == 'BUTTON')
+    const response = await fetch(url);
+    session_data = await response.json();
+    console.log(`Found ${session_data.length} streams`);
+
+    /* Sort page_data by field added ascending */
+    session_data.sort(function(a, b){
+        return b.added - a.added;
+    });
+
+    // Calculate pagination values
+    session_paging.totalPages = Math.ceil(session_data.length / session_paging.itemsPerPage);
+    session_paging.currentPage = 1;
+
+    buildAllCardsFromSearch(1);
+    renderPagination();
+}
+
+/**
+ * Get the stream URL from element and pass it to video player
+ * @param {event} event Element event
+ */
+async function download_movie_action(event) {
+    //TODO: Add code to download movie
+    console.log("Call the download API for movie ID " + event.currentTarget.attributes.movie_id.value)
+    url = "http://localhost:5000/download_stream/" + event.currentTarget.attributes.movie_id.value
+    const response = await fetch(url);
+    session_data = await response.json();
+    if (response.status != 200)
     {
-        switch (event.target.id) {
-            case "play_video_btn":
-                var movie_url = event.target.attributes.movie_url.value;
-                var movie_extension = event.target.attributes.movie_extension.value;
-                var allowed_extensions = ["mp4", "mkv"];
+        console.log("Error, could not retrieve data");
+        console.log(response);
+    }
+    //Render DATA
+    console.log(session_data)
+}
 
-                if (allowed_extensions.includes(movie_extension))
-                {
-                    var myPlayer = videojs('video_player_id', {liveui: true, controls: true, autoplay: true});
-                    myPlayer.aspectRatio('16:9');
-                    myPlayer.fluid(true);
-                    
-                    if (movie_extension == "mp4") {
-                        mime_type = "video/mp4";
-                    }
-                    else if (movie_extension == "mkv") {
-                        mime_type = "video/webm";
-                    }
-                    myPlayer.src({ type: mime_type, src: movie_url });
-                    document.getElementById('myModal').addEventListener('hidden.bs.modal', function (event) {
-                        videojs.players.video_player_id.pause()
-                    })
+/**
+ * Get the stream URL from element and pass it to video player
+ * @param {event} event Element event
+ */
+ async function open_series_action(event) {
+    //TODO: Add code to open the series
+    console.log("Call the open series API for series ID " + event.currentTarget.attributes.series_id.value)
+    url = "http://localhost:5000/get_series/" + event.currentTarget.attributes.series_id.value;
+    const response = await fetch(url);
+    session_data = await response.json();
+    if (response.status != 200)
+    {
+        console.log("Error, could not retrieve data");
+        console.log(response);
+    }
+    //Render DATA
+    console.log(session_data)
+}
 
-                    var myVideoModal = new bootstrap.Modal(document.getElementById('myModal'));
-                    myVideoModal.show();
-                }
-                else
-                {
-                    console.log("Video type not supported `" + movie_extension + '`');
-                    console.log("Video URL: `" + movie_url + "`")
-                }
-                break;
-            case "open_series_btn":
-                //TODO: Add code to open the series
-                break;
+/**
+ * Get the stream URL from element and pass it to video player
+ * @param {event} event Element event
+ */
+function play_movie_action(event) {
+
+    var movie_url = event.currentTarget.attributes.movie_url.value;
+    var movie_extension = event.currentTarget.attributes.movie_extension.value;
+    var allowed_extensions = ["mp4", "mkv"];
+
+    if (allowed_extensions.includes(movie_extension))
+    {
+        var myPlayer = videojs('video_player_id', {liveui: true, controls: true, autoplay: true});
+        myPlayer.aspectRatio('16:9');
+        myPlayer.fluid(true);
+        
+        if (movie_extension == "mp4") {
+            mime_type = "video/mp4";
         }
+        else if (movie_extension == "mkv") {
+            mime_type = "video/webm";
+        }
+        myPlayer.src({ type: mime_type, src: movie_url });
+        document.getElementById('myModal').addEventListener('hidden.bs.modal', function (event) {
+            videojs.players.video_player_id.pause()
+        })
+
+        var myVideoModal = new bootstrap.Modal(document.getElementById('myModal'));
+        myVideoModal.show();
     }
     else
     {
-        node = event.target
-        // Search for parent card
-        while(!node.classList.contains('card'))
-        {
-            node = node.parentNode;
-        }
-        // TODO: above will exit only when the card is found, not good
-        node.classList.toggle('is-flipped');
+        console.log("Video type not supported `" + movie_extension + '`');
+        console.log("Video URL: `" + movie_url + "`")
     }
+}
+
+/**
+ * Flip cards
+ * @param {event} event Element event
+ */
+function manage_card_events(event) {
+    node = event.target
+    // Search for parent card
+    while(!node.classList.contains('card'))
+    {
+        node = node.parentNode;
+    }
+    // TODO: above will exit only when the card is found, not good
+    node.classList.toggle('is-flipped');
 }
 
 function updateDropDownButtonLabel(txt)
@@ -352,8 +906,12 @@ function updateDropDownButtonLabel(txt)
   dropdownButton.innerHTML = txt;
 }
 
+// Call the function to generate the dropdown when the page loads
+generateCountryDropdown();
+
 /* Setup event handlers */
 document.getElementById("searchString_INPUT").addEventListener('keypress', logKey);
 document.getElementById("searchString_BTN").addEventListener('click', fetchSearchResults);
-maximumRecordsToDisplay = 100;
+document.getElementById("last7days_BTN").addEventListener('click', get_last_7days_action);
+
 </script>

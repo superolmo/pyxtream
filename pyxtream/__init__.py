@@ -1,6 +1,6 @@
 
 from .progress import progress
-from .pyxtream import XTream
+from .pyxtream import XTream, Channel, Group, Serie, Episode
 
 try:
     from .rest_api import FlaskWrap
