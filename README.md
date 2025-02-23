@@ -2,7 +2,7 @@
 
 PyXtream loads the xtream IPTV content from a provider server. Groups, Channels, Series are all organized in dictionaries. Season and Episodes are retrieved as needed. It includes functions for searching streams and downloading.
 
-This library was originally designed to work with Hypnotix at https://github.com/linuxmint/hypnotix
+This library was originally designed to work with Hypnotix at https://github.com/linuxmint/hypnotix, so its compatibility with Hypnotix takes precedence.
 
 # Installing
 
@@ -34,19 +34,17 @@ else:
     print("Could not connect")
 ```
 
-Once completed, all the data can be found in xTream.groups, xTream.channels, xTream.movies, xTream.series. Series do not contains the information for all the Seasons and Episodes. Those are loaded separately when needed by calling the following function using a Series object from xTream.series array of dictionaries.
+Once completed, all the data can be found in `xTream.groups`, `xTream.channels`, `xTream.movies`, `xTream.series`. Series do not contains the information for all the Seasons and Episodes. Those are loaded separately when needed by calling the following function using a Series object from `xTream.series` array of dictionaries.
 
 ```python
 xt.get_series_info_by_id(series_obj)
 ```
 
-At this point, the series_obj will have both Seasons and Episodes populated.
-
-If you have installed Flask, the REST Api will be turned ON automatically. At this point, there is no method to turn it off. Maybe in a future version.
+At this point, the `series_obj` will have both Seasons and Episodes populated.
 
 ## Functional Test
 
-Please modify the functional_test.py file with your provider information, then start the application.
+Please modify the `functional_test.py` file with your provider information, then start the application.
 
 ```shell
 python3 functional_test.py
@@ -54,21 +52,15 @@ python3 functional_test.py
 
 The functional test will allow you to authenticate on startup, load and search streams. If Flask is installed, a simple website will be available at http://localhost:5000 to allow you to search and play streams.
 
-## Interesting Work by somebody else 
+## Applications using PyXtream
+
+Applications using PyXtream PYPI package
 
 - xtreamPOC - https://github.com/sght500/xtreamPOC - Project is a Proof of Concept (POC) that leverages pyxtream, MPV, and NiceGUI to demonstrate the use of Xtream Portal Codes.
 
-So far there is no ready to use Transport Stream library for playing live stream.
+Applications using PyXtream files
 
-- This is the library to convert TS to MP4
-  - https://github.com/videojs/mux.js/
-
-- More on above, but same problem. XMLHttpRequest waits until the whole TS file is completely loaded. It does not work for live video streams
-  - https://developpaper.com/play-ts-video-directly-on-the-web/
-
-- This below will allow me to process chunks of data
-  - https://stackoverflow.com/questions/37402716/handle-xmlhttprequest-response-with-large-data
-
+- Hypnotix - https://github.com/linuxmint/hypnotix - Hypnotix is an IPTV streaming application with support for live TV, movies and series.
 
 # API
 
@@ -128,3 +120,16 @@ Follows the Semantic Versioning from https://semver.org/
 | 2021-06-05 | 0.1.2 | - Fixed Server Name |
 | 2021-06-04 | 0.1.1 | - Updated README.md |
 | 2021-06-04 | 0.1.0 | - Initial Release |
+
+## Interesting content that could be used for future development
+
+So far there is no ready to use Transport Stream library for playing live stream.
+
+- This is the library to convert TS to MP4
+  - https://github.com/videojs/mux.js/
+
+- More on above, but same problem. XMLHttpRequest waits until the whole TS file is completely loaded. It does not work for live video streams
+  - https://developpaper.com/play-ts-video-directly-on-the-web/
+
+- This below will allow me to process chunks of data
+  - https://stackoverflow.com/questions/37402716/handle-xmlhttprequest-response-with-large-data
