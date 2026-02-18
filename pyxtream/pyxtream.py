@@ -1023,6 +1023,11 @@ class XTream:
             get_series.seasons[season_name] = season
             if "episodes" in series_seasons.keys():
                 for series_season in series_seasons["episodes"].keys():
+                    # add only episodes of current season
+                    # use series_season as fallback to make sure episodes will be set
+                    # if we can not parse the season number
+                    if int(series_info.get('season_number', series_season)) != int(series_season):
+                        continue
                     for episode_info in series_seasons["episodes"][str(series_season)]:
                         new_episode_channel = Episode(
                             self, series_info, "Testing", episode_info
