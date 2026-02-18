@@ -212,8 +212,8 @@ class Episode:
         self.episode_number = episode_info["episode_num"]
         self.av_info = episode_info["info"]
 
-        self.logo = series_info["cover"]
-        self.logo_path = xtream._get_logo_local_path(self.logo)
+        self.logo = series_info.get("cover", "")
+        self.logo_path = xtream._get_logo_local_path(self.logo) if len(self.logo) > 0 else ""
 
         self.url = f"{xtream.server}/series/" \
                    f"{xtream.authorization['username']}/" \
@@ -1035,6 +1035,11 @@ class XTream:
             get_series.seasons[season_name] = season
             if "episodes" in series_seasons.keys():
                 for series_season in series_seasons["episodes"].keys():
+                    # add only episodes of current season
+                    # use series_season as fallback to make sure episodes will be set
+                    # if we can not parse the season number
+                    if int(series_info.get('season_number', series_season)) != int(series_season):
+                        continue
                     for episode_info in series_seasons["episodes"][str(series_season)]:
                         new_episode_channel = Episode(
                             self, series_info, "Testing", episode_info
