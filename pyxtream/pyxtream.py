@@ -212,8 +212,8 @@ class Episode:
         self.episode_number = episode_info["episode_num"]
         self.av_info = episode_info["info"]
 
-        self.logo = series_info["cover"]
-        self.logo_path = xtream._get_logo_local_path(self.logo)
+        self.logo = series_info.get("cover", "")
+        self.logo_path = xtream._get_logo_local_path(self.logo) if len(self.logo) > 0 else ""
 
         self.url = f"{xtream.server}/series/" \
                    f"{xtream.authorization['username']}/" \
