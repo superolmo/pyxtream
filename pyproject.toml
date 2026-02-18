@@ -4,7 +4,7 @@ version = "0.7.3"
 requires-python = ">=3.9"
 description = "xtream IPTV loader"
 authors = [{name = "Claudio Olmi", email = "<superolmo2@gmail.com>"}]
-license = "GPL3"
+license = "GPL-3.0-or-later"
 readme = "README.md"
 homepage = "https://github.com/superolmo/pyxtream"
 classifiers = [

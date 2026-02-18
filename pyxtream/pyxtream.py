@@ -25,7 +25,7 @@ from os import path as osp
 
 # Timing xtream json downloads
 from timeit import default_timer as timer
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List, Dict
 from datetime import datetime, timedelta
 import requests
 
@@ -252,8 +252,8 @@ class Serie:
         self.logo = series_info["cover"]
         self.logo_path = xtream._get_logo_local_path(self.logo)
 
-        self.seasons = {}
-        self.episodes = {}
+        self.seasons: Dict[str, Season] = {}
+        self.episodes: Dict[str, Episode] = {}
 
         # Check if category_id key is available
         if "series_id" in series_info.keys():
@@ -314,18 +314,18 @@ class XTream:
     auth_data = {}
     authorization = {'username': '', 'password': ''}
 
-    groups = []
-    channels = []
-    series = []
-    movies = []
-    movies_30days = []
-    movies_7days = []
+    groups: List[Group] = []
+    channels: List[Channel] = []
+    series: List[Serie] = []
+    movies: List[Channel] = []
+    movies_30days: List[Channel] = []
+    movies_7days: List[Channel] = []
 
-    connection_headers = {}
+    connection_headers: dict = {}
 
-    state = {'authenticated': False, 'loaded': False}
+    state: Dict[str, bool] = {'authenticated': False, 'loaded': False}
 
-    hide_adult_content = False
+    hide_adult_content: bool = False
 
     live_catch_all_group = Group(
         {"category_id": "9999", "category_name": "xEverythingElse", "parent_id": 0}, live_type
@@ -343,7 +343,7 @@ class XTream:
     validate_json: bool = True
 
     # Used by REST API to get download progress
-    download_progress: dict = {'StreamId': 0, 'Total': 0, 'Progress': 0}
+    download_progress: Dict[str, int] = {'StreamId': 0, 'Total': 0, 'Progress': 0}
 
     def __init__(
         self,
@@ -506,9 +506,13 @@ class XTream:
         filename = ""
         for series_stream in self.series:
             if series_stream.series_id == stream_id:
-                episode_object: Episode = series_stream.episodes["1"]
-                url = f"{series_stream.url}/{episode_object.id}."\
-                      f"{episode_object.container_extension}"
+                try:
+                    episode_object: Episode = series_stream.episodes["1"]
+                    url = f"{series_stream.url}/{episode_object.id}."\
+                          f"{episode_object.container_extension}"
+                except KeyError:
+                    print(f" - Could not find episode for series ID `{stream_id}`")
+                    print(f"{series_stream.raw}")
 
         for stream in self.movies:
             if stream.id == stream_id:
@@ -534,7 +538,7 @@ class XTream:
             bool: True if successful, False if error
         """
         ret_code = False
-        mb_size = 1024*1024
+        mb_size = int(1024*1024)
         try:
             print(f"Downloading from URL `{url}` and saving at `{fullpath_filename}`")
 
@@ -560,10 +564,22 @@ class XTream:
             if response.status_code in (200, 206):
                 # Get content type Binary or Text
                 content_type = response.headers.get('content-type', None)
+                if content_type is None:
+                    print("Could not get content-type from server")
+                    return ret_code
+
+                # Make sure that content-type is Video
+                if not content_type.startswith("video"):
+                    print(f"Content-type is not a video {content_type}")
+                    return ret_code
 
                 # Get total playlist byte size
-                total_content_size = int(response.headers.get('content-length', None))
-                total_content_size_mb = total_content_size/mb_size
+                total_content_size = int(response.headers.get('content-length', 0))
+                if total_content_size == 0:
+                    print("Could not get content-length from server")
+                    return ret_code
+
+                total_content_size_mb = int(total_content_size)/mb_size
 
                 # Set downloaded size
                 downloaded_bytes = 0
@@ -576,25 +592,23 @@ class XTream:
                 print(
                     f"Ready to download {total_content_size_mb:.1f} MB file ({total_content_size})"
                     )
-                if content_type.split('/')[0] != "text":
-                    with open(fullpath_filename, mode) as file:
 
-                        # Grab data by block_bytes
-                        for data in response.iter_content(block_bytes, decode_unicode=False):
-                            downloaded_bytes += block_bytes
-                            progress(downloaded_bytes, total_content_size, "Downloading")
-                            self.download_progress['Progress'] = downloaded_bytes
-                            file.write(data)
+                with open(fullpath_filename, mode) as file:
 
-                    ret_code = True
+                    # Grab data by block_bytes
+                    for data in response.iter_content(block_bytes, decode_unicode=False):
+                        downloaded_bytes += block_bytes
+                        progress(downloaded_bytes, total_content_size, "Downloading")
+                        self.download_progress['Progress'] = downloaded_bytes
+                        file.write(data)
 
-                    # Delete Range if it was added
-                    try:
-                        del self.connection_headers['Range']
-                    except KeyError:
-                        pass
-                else:
-                    print(f"URL has a file with unexpected content-type {content_type}")
+                ret_code = True
+
+                # Delete Range if it was added
+                try:
+                    del self.connection_headers['Range']
+                except KeyError:
+                    pass
             else:
                 print(f"HTTP error {response.status_code} while retrieving from {url}")
         except requests.exceptions.ReadTimeout:
@@ -632,7 +646,7 @@ class XTream:
 
         return re.match(regex, url) is not None
 
-    def _get_logo_local_path(self, logo_url: str) -> str:
+    def _get_logo_local_path(self, logo_url: str) -> str | None:
         """Convert the Logo URL to a local Logo Path
 
         Args:
@@ -642,10 +656,8 @@ class XTream:
             [type]: The logo path as a string or None
         """
         local_logo_path = None
-        if logo_url is not None:
-            if not self._validate_url(logo_url):
-                logo_url = None
-            else:
+        if logo_url != "":
+            if self._validate_url(logo_url):
                 local_logo_path = osp.join(
                     self.cache_path,
                     f"{self._slugify(self.name)}-{self._slugify(osp.split(logo_url)[-1])}"
@@ -703,7 +715,7 @@ class XTream:
             else:
                 print(f"\n{self.name}: Provider refused the connection")
 
-    def _load_from_file(self, filename) -> dict:
+    def _load_from_file(self, filename: str) -> dict | None:
         """Try to load the dictionary from file
 
         Args:
@@ -738,7 +750,7 @@ class XTream:
 
         return None
 
-    def _save_to_file(self, data_list: dict, filename: str) -> bool:
+    def _save_to_file(self, data_list: dict | None, filename: str) -> bool:
         """Save a dictionary to file
 
         This function will overwrite the file if already exists
@@ -1242,7 +1254,7 @@ class XTream:
     def get_series_URL_by_category(self, category_id) -> str:
         return f"{self.base_url}&action=get_series&category_id={category_id}"
 
-    def get_series_info_URL_by_ID(self, series_id) -> str:
+    def get_series_info_URL_by_ID(self, series_id: str) -> str:
         return f"{self.base_url}&action=get_series_info&series_id={series_id}"
 
     def get_VOD_info_URL_by_ID(self, vod_id) -> str:

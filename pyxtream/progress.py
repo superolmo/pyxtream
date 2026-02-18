@@ -20,8 +20,8 @@
 import sys
 
 
-def progress(count, total, status=''):
-    bar_len = 60
+def progress(count: int, total: int, status: str = ''):
+    bar_len = int(60)
     filled_len = int(round(bar_len * count / float(total)))
 
     percents = round(100.0 * count / float(total), 1)
