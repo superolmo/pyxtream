@@ -1,19 +1,19 @@
 # test_pyxtream.py
 import os
+import sys
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 
 import pytest
 
-import sys
 sys.path.insert(0, '../pyxtream')
 from pyxtream import Channel, Episode, Group, Serie, XTream
 
 # Mock data for provider connection
 mock_provider_name = "Test Provider"
-mock_provider_username = "test_user" # Must be the same as in the MOCK_AUTH_DATA
-mock_provider_password = "test_pass" # Must be the same as in the MOCK_AUTH_DATA
-mock_provider_url = "http://test.server.com" # Must be the same as in the MOCK_AUTH_DATA
+mock_provider_username = "test_user"            # Must be the same as in the MOCK_AUTH_DATA
+mock_provider_password = "test_pass"            # Must be the same as in the MOCK_AUTH_DATA
+mock_provider_url = "http://test.server.com"    # Must be the same as in the MOCK_AUTH_DATA
 
 
 # Mock data for testing
@@ -52,6 +52,7 @@ MOCK_SERIES_INFO = {
     }
 }
 
+
 # Fixture for environment setup
 @pytest.fixture(autouse=True)
 def setup_environment(monkeypatch):
@@ -67,7 +68,7 @@ def mock_xtream():
     with patch('requests.get') as mock_get:
         mock_get.return_value.ok = True
         mock_get.return_value.json.return_value = MOCK_AUTH_DATA
-        USE_FLASK=False
+        USE_FLASK = False
         xtream = XTream(
             provider_name=mock_provider_name,
             provider_username=mock_provider_username,
@@ -76,10 +77,12 @@ def mock_xtream():
         )
         return xtream
 
+
 def test_authentication(mock_xtream):
     assert mock_xtream.state["authenticated"] is True
     assert mock_xtream.authorization["username"] == mock_provider_username
     assert mock_xtream.authorization["password"] == mock_provider_password
+
 
 def test_channel_initialization(mock_xtream):
     stream_info = {
@@ -100,12 +103,14 @@ def test_channel_initialization(mock_xtream):
         f"{mock_provider_url}/live/{mock_provider_username}/{mock_provider_password}/123.ts"
         )
 
+
 def test_group_initialization():
     group_info = {"category_id": 1, "category_name": "Live TV"}
     group = Group(group_info, "Live")
     assert group.group_id == 1
     assert group.name == "Live TV"
     assert group.group_type == 0  # TV_GROUP
+
 
 def test_serie_initialization(mock_xtream):
     series_info = {
@@ -130,6 +135,7 @@ def test_serie_initialization(mock_xtream):
     assert isinstance(serie.seasons, dict)
     assert isinstance(serie.episodes, dict)
 
+
 def test_episode_initialization(mock_xtream):
     series_info = {"cover": f"{mock_provider_url}/cover.jpg"}
     episode_info = {
@@ -143,6 +149,7 @@ def test_episode_initialization(mock_xtream):
     assert episode.id == 1
     assert episode.title == "Episode 1"
 
+
 def test_load_categories(mock_xtream):
     with patch.object(mock_xtream, '_get_request', return_value=MOCK_CATEGORIES) as mock_get:
         # Test live categories
@@ -150,21 +157,24 @@ def test_load_categories(mock_xtream):
         assert len(categories) == 2
         assert categories[0]["category_name"] == "Live TV"
 
+
 def test_load_streams(mock_xtream):
     with patch.object(mock_xtream, '_get_request', return_value=MOCK_STREAMS) as mock_get:
-        
         # Test live streams
         streams = mock_xtream._load_streams_from_provider(mock_xtream.live_type)
         assert len(streams) == 2
         assert streams[0]["name"] == "Channel 1"
 
+
 def test_validate_url(mock_xtream):
     assert mock_xtream._validate_url("http://valid.url") is True
     assert mock_xtream._validate_url("invalid.url") is False
 
+
 def test_slugify(mock_xtream):
     assert mock_xtream._slugify("Test String!") == "test string!"
     assert mock_xtream._slugify("123ABC") == "123abc"
+
 
 def test_get_logo_local_path(mock_xtream):
     logo_url = f"{mock_provider_url}/logo.png"
