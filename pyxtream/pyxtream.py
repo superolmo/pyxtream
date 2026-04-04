@@ -600,7 +600,6 @@ class XTream:
                         # Grab data by block_bytes
                         for data in response.iter_content(block_bytes, decode_unicode=False):
                             downloaded_bytes += block_bytes
-                            # progress(downloaded_bytes, total_content_size, "Downloading")
                             self.download_progress['Progress'] = downloaded_bytes
                             file.write(data)
 
