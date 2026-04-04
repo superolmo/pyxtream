@@ -1,5 +1,6 @@
 
 from enum import Enum
+from typing import Any
 
 from jsonschema import exceptions, validate
 
@@ -276,7 +277,7 @@ group_schema = {
 }
 
 
-def schemaValidator(jsonData: str, schemaType: SchemaType) -> bool:
+def schemaValidator(jsonData: Any, schemaType: SchemaType) -> bool:
 
     if (schemaType == SchemaType.SERIES):
         json_schema = series_schema

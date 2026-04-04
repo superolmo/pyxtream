@@ -1,8 +1,12 @@
+"""
+Rest API
+"""
 
 # Import Flask to control IPTV via REST API
-from threading import Thread
 import logging
 from os import path
+from threading import Thread
+
 from flask import Flask
 from flask import Response as FlaskResponse
 
@@ -25,7 +29,7 @@ class EndpointAction(object):
             # Add handlers here
             "stream_search_generic": lambda: self._handle_search(args['term']),
             "stream_search_with_type": lambda: self._handle_search(args['term'], args.get('type')),
-            "download_stream": lambda: self.action(int(args['stream_id'])),
+            "download_stream": lambda: self.action(str(args['stream_type']), int(args['stream_id'])),
             "get_download_progress": lambda: self.action(int(args['stream_id'])),
             "get_last_7days": lambda: self.action(),
             "home": lambda: self.action,
@@ -55,7 +59,7 @@ class FlaskWrap(Thread):
     host: str = ""
     port: int = 0
 
-    def __init__(self, name, xtream: object, html_template_folder: str = None,
+    def __init__(self, name, xtream: object, html_template_folder: str = "",
                  host: str = "0.0.0.0", port: int = 5000, debug: bool = True
                  ):
 
@@ -75,7 +79,7 @@ class FlaskWrap(Thread):
         self.daemon = True
 
         # Load HTML Home Template if any
-        if html_template_folder is not None:
+        if html_template_folder != "":
             self.home_template_file_name = path.join(html_template_folder, "index.html")
             if path.isfile(self.home_template_file_name):
                 with open(self.home_template_file_name, 'r', encoding="utf-8") as home_html:
@@ -91,7 +95,7 @@ class FlaskWrap(Thread):
                           endpoint_name='stream_search_with_type',
                           handler=[self.xt.search_stream, 'stream_search_with_type']
                           )
-        self.add_endpoint(endpoint='/download_stream/<stream_id>/',
+        self.add_endpoint(endpoint='/download_stream/<stream_type>/<stream_id>/',
                           endpoint_name='download_stream',
                           handler=[self.xt.download_video, "download_stream"]
                           )

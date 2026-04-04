@@ -50,8 +50,10 @@ xt = XTream(
     PROVIDER_PASSWORD,
     PROVIDER_URL,
     reload_time_sec=60*60*8,
+    validate_json=False,
     debug_flask=True,
-    enable_flask=True
+    enable_flask=True,
+    flask_port=5000
     )
 
 sleep(0.5)
