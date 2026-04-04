@@ -20,16 +20,17 @@ import json
 import re
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from os import makedirs
 from os import path as osp
 # Timing xtream json downloads
 from timeit import default_timer as timer
 from typing import Optional, Tuple
+
 import requests
 
-from pyxtream.schemaValidator import SchemaType, schemaValidator
 from pyxtream import api
+from pyxtream.schemaValidator import SchemaType, schemaValidator
 
 try:
     from pyxtream.rest_api import FlaskWrap
@@ -61,10 +62,10 @@ class Channel:
     date_now: datetime
 
     # This contains the raw JSON data
-    raw = ""
+    raw: dict = {}
 
     def __init__(self, xtream: object, group_title, stream_info):
-        self.date_now = datetime.now()
+        self.date_now = datetime.now(timezone.utc)
 
         stream_type = stream_info["stream_type"]
         # Adjust the odd "created_live" type
@@ -112,7 +113,7 @@ class Channel:
 
             self.added = int(stream_info["added"])
             self.age_days_from_added = abs(
-                datetime.utcfromtimestamp(self.added) - self.date_now
+                datetime.fromtimestamp(self.added, timezone.utc) - self.date_now
                 ).days
 
             # Required by Hypnotix
@@ -142,7 +143,7 @@ class Group:
     group_id = ""
 
     # This contains the raw JSON data
-    raw = ""
+    raw: dict = {}
 
     def convert_region_shortname_to_fullname(self, shortname):
 
@@ -200,7 +201,7 @@ class Episode:
     # XTream
 
     # This contains the raw JSON data
-    raw = ""
+    raw: dict = {}
 
     def __init__(self, xtream: object, series_info, group_title, episode_info) -> None:
         # Raw JSON Episode
@@ -239,7 +240,7 @@ class Serie:
     genre = ""
 
     # This contains the raw JSON data
-    raw = ""
+    raw: dict = {}
 
     def __init__(self, xtream: object, series_info):
 
@@ -452,6 +453,9 @@ class XTream:
     def get_last_7days(self):
         return json.dumps(self.movies_7days, default=lambda x: x.export_json())
 
+    def get_last_30days(self):
+        return json.dumps(self.movies_30days, default=lambda x: x.export_json())
+
     def search_stream(self, keyword: str,
                       ignore_case: bool = True,
                       return_type: str = "LIST",
@@ -501,35 +505,40 @@ class XTream:
 
         return search_result
 
-    def download_video(self, stream_id: int) -> str:
+    def download_video(self, stream_type: str, stream_id: int) -> str:
         """Download Video from Stream ID
 
         Args:
             stream_id (int): String identifying the stream ID
 
         Returns:
-            str: Absolute Path Filename where the file was saved. Empty if could not download
+            str: Absolute Path Filename where the file was saved. Empty string if could not download
         """
         url = ""
         filename = ""
-        for series_stream in self.series:
-            if series_stream.series_id == stream_id:
-                episode_object: Episode = series_stream.episodes["1"]
-                url = f"{series_stream.url}/{episode_object.id}."\
-                      f"{episode_object.container_extension}"
+        if stream_type == "series":
+            for series_stream in self.series:
+                if series_stream.series_id == stream_id:
+                    episode_object: Episode = series_stream.episodes["1"]
+                    url = f"{series_stream.url}/{episode_object.id}."\
+                        f"{episode_object.container_extension}"
 
-        for stream in self.movies:
-            if stream.id == stream_id:
-                url = stream.url
-                fn = f"{self._slugify(stream.name)}.{stream.raw['container_extension']}"
-                filename = osp.join(self.cache_path, fn)
+        if stream_type == "movie":
+            for stream in self.movies:
+                if stream.id == stream_id:
+                    url = stream.url
+                    fn = f"{self._slugify(stream.name)}.{stream.raw['container_extension']}"
+                    filename = osp.join(self.cache_path, fn)
 
         # If the url was correctly built and file does not exists, start downloading
-        if url != "":
-            if not self._download_video_impl(url, filename):
-                return "Error"
+        if url == "":
+            return ""
 
-        return filename
+        for attempt in range(10):
+            if self._download_video_impl(url, filename):
+                return filename
+
+        return ""
 
     def _download_video_impl(self, url: str, fullpath_filename: str) -> bool:
         """Download a stream
@@ -543,6 +552,7 @@ class XTream:
         """
         ret_code = False
         mb_size = 1024*1024
+        headers = self.connection_headers.copy()
         try:
             self.printx(f"Downloading from URL `{url}` and saving at `{fullpath_filename}`")
 
@@ -550,7 +560,7 @@ class XTream:
             if osp.exists(fullpath_filename):
                 # If the file exists, resume the download from where it left off
                 file_size = osp.getsize(fullpath_filename)
-                self.connection_headers['Range'] = f'bytes={file_size}-'
+                headers['Range'] = f'bytes={file_size}-'
                 mode = 'ab'  # Append to the existing file
                 self.printx(f"Resuming from {file_size:_} bytes")
             else:
@@ -562,7 +572,7 @@ class XTream:
                 url, timeout=(10),
                 stream=True,
                 allow_redirects=True,
-                headers=self.connection_headers
+                headers=headers
                 )
             # If there is an answer from the remote server
             if response.status_code in (200, 206):
@@ -595,12 +605,6 @@ class XTream:
                             file.write(data)
 
                     ret_code = True
-
-                    # Delete Range if it was added
-                    try:
-                        del self.connection_headers['Range']
-                    except KeyError:
-                        pass
                 else:
                     self.printx(f"URL has a file with unexpected content-type {content_type}")
             else:
@@ -694,7 +698,7 @@ class XTream:
                     # Account expiration date
                     self.account_expiration = timedelta(
                         seconds=(
-                            int(self.auth_data["user_info"]["exp_date"])-datetime.now().timestamp()
+                            int(self.auth_data["user_info"]["exp_date"])-datetime.now(timezone.utc).timestamp()
                         )
                     )
                     # Mark connection authorized
@@ -1056,6 +1060,7 @@ class XTream:
         all_data = []
         down_stats = {"bytes": 0, "kbytes": 0, "mbytes": 0, "start": 0.0, "delta_sec": 0.0}
 
+        response = None
         for attempt in range(10):
             try:
                 response = requests.get(
@@ -1071,7 +1076,7 @@ class XTream:
                 return None
 
         # If there is an answer from the remote server
-        if response.status_code in (200, 206):
+        if response is not None and response.status_code in (200, 206):
             down_stats["start"] = time.perf_counter()
 
             # Set downloaded size
@@ -1086,13 +1091,17 @@ class XTream:
                 down_stats["kbytes"] = down_stats["bytes"]/kb_size
                 down_stats["mbytes"] = down_stats["bytes"]/kb_size/kb_size
                 down_stats["delta_sec"] = time.perf_counter() - down_stats["start"]
-                download_speed_average = down_stats["kbytes"]//down_stats["delta_sec"]
+                if down_stats["delta_sec"] > 0:
+                    download_speed_average = down_stats["kbytes"] // down_stats["delta_sec"]
+                else:
+                    download_speed_average = 0
                 # Show progress
-                msg = f'Downloading {down_stats["kbytes"]:.1f} MB at {download_speed_average:.0f} kB/s'
+                msg = f'Downloading {down_stats["kbytes"]:.1f} kB at {download_speed_average:.0f} kB/s'
                 sys.stdout.write("\r" + msg)
                 sys.stdout.flush()
                 all_data.append(data)
-            self.printx(" - Done")
+            sys.stdout.write(" - Done\n")
+            sys.stdout.flush()
             full_content = b''.join(all_data)
             return json.loads(full_content)
 

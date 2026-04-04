@@ -15,9 +15,40 @@
     <script src="https://cdn.jsdelivr.net/npm/video.js@8.21.0/dist/video.min.js"></script>
     <style>
         .card {
-        width: 200px;
-        margin: 10px;
-        padding: 8px;
+            width: 200px;
+            height: 480px;
+            margin: 10px;
+            perspective: 1000px;
+            transform-style: preserve-3d;
+            transition: transform 0.6s;
+            cursor: pointer;
+            position: relative;
+            border: none;
+            background: transparent;
+        }
+
+        .card.is-flipped {
+            transform: rotateY(180deg);
+        }
+
+        .face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            border: 1px solid rgba(0,0,0,.125);
+            border-radius: .375rem;
+            background: white;
+            padding: 8px;
+            top: 0;
+            left: 0;
+        }
+
+        .back {
+            transform: rotateY(180deg);
+            background-color: #f8f9fa;
+            overflow-y: auto;
         }
 
         .card-img-top {
@@ -80,7 +111,7 @@
 </head>
 
 <body>
-    <nav class="navbar navbar-expand navbar-dark sticky-top bg-dark">
+    <nav class="navbar navbar-expand navbar-dark sticky-top bg-dark" id="mainNavbar">
         <div class="container">
             <a class="navbar-brand" href="#">PyXtream</a>
             <div class="dropdown">
@@ -109,20 +140,19 @@
 
             </div>
         </div>
-        <div class="modal" id="myModal" tabindex="-1">
-            <div class="modal-dialog modal-dialog-centered">
+        <div class="modal fade" id="myModal" tabindex="-1">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
                 <div class="modal-content">
-                    <div class="modal-body">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Stream Player</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="video_container">
                         <video id="video_player_id" class="video-js"></video>
                     </div>
                 </div>
             </div>
         </div>
-        <nav aria-label="Page navigation" class="mt-4">
-            <ul class="pagination justify-content-center" id="pagination">
-                <!-- Pagination items will be dynamically added here -->
-            </ul>
-        </nav>
     </main>
 </body>
 
@@ -144,6 +174,14 @@ var html_card_series = `
                         id="open_series_btn" data-bs-toggle="tooltip" title="">
                     <i class="bi bi-folder2-open"></i>
                 </button>
+            </div>
+        </div>
+        <div class="face back d-flex flex-column">
+            <div class="card-body">
+                <h5 class="card-title text-center" id="back_stream_title"></h5>
+                <hr>
+                <p class="card-text text-start" id="back_stream_plot" style="font-size: 0.75rem;"></p>
+                <div id="back_stream_details" class="text-start" style="font-size: 0.7rem;"></div>
             </div>
         </div>
     </div>
@@ -170,12 +208,24 @@ var html_card_movie = `
                 </button>
             </div>
         </div>
+        <div class="face back d-flex flex-column">
+            <div class="card-body">
+                <h5 class="card-title text-center" id="back_stream_title"></h5>
+                <hr>
+                <p class="card-text text-start" id="back_stream_plot" style="font-size: 0.75rem;"></p>
+                <div id="back_stream_details" class="text-start" style="font-size: 0.7rem;"></div>
+            </div>
+        </div>
     </div>
 `;
 var ribbon_div = "<div class='ribbon'></div>";
 
-var session_data = []
-var session_paging = {"currentPage": 1, "itemsPerPage": 40, "totalPages": 1}
+const API_BASE_URL = "http://localhost:5000";
+var all_streams_data = []; // Stores all fetched streams
+var displayed_streams_count = 0; // How many streams are currently displayed
+const streamsPerLoad = 40; // Number of streams to load at a time
+var isLoading = false; // Flag to prevent multiple simultaneous loads
+var hasMoreData = true; // Flag to indicate if there are more streams to load
 
 var isoCountries = {
     'AF' : 'Afghanistan',
@@ -508,7 +558,7 @@ function convertUnixTimeToHumanReadable(unixTimestamp) {
 function htmlToElement(html) {
     var template = document.createElement('template');
     template.innerHTML = html.trim();
-    return template.content; //.firstChild;
+    return template.content.firstChild; // Return the actual element
 }
 
 /**
@@ -518,29 +568,14 @@ function htmlToElement(html) {
  */
 function buildMovieCard(item)
 {
-    var page_country = document.getElementById("countryDropdown").value;
+    var page_country = document.getElementById("countryDropdown").innerText;
     var card_info = "";
 
+    var card; // Declare card here to be accessible after switch
     /*** Get all the card content from item object ***/
     switch (item.stream_type) {
         case "live":
-        case "created_live":
-
-// added: "1715964817"
-// category_id: "834"
-// container_extension: "mp4"
-// custom_sid: ""
-// direct_source: ""
-// is_adult: 0
-// logo_path: "/home/superolmo/.xtream-cache/alibaba-dxxm3lldjgrc50i5rhvfqziskan_big.jpg"
-// name: "EN| Pompeii"
-// num: 8611
-// rating: "5.528"
-// rating_5based: 2.8
-// stream_icon: "http://a985.xyz:900/images/dxxM3lLDjGRC50i5rhvfQziskAN_big.jpg"
-// stream_id: 401208728
-// stream_type: "movie"
-// url: "http://fqcnndg.mexamo.xyz:80/movie/9769452694/5301927423/401208728.mp4"         
+        case "created_live":  
         case "movie":
             var card = htmlToElement(html_card_movie);
             var card_front = card.querySelector('.front');
@@ -567,25 +602,6 @@ function buildMovieCard(item)
             break;
         case undefined:
             // If stream_id is undefined, it is not a Movie, it is a Series
-
-
-// cast: "Wendy Richard, Valerie Leon, Frankie Howerd, Elizabeth Larner, Jeanne Mockford, Max Adrian, Russell Hunter, Wallas Eaton"
-// category_id: "1502"
-// cover: "http://a985.xyz:900/images/zrRmxQH2Gr2pX3DP2Lu7LC2cdjy_big.jpg"
-// director: ""
-// episode_run_time: "30"
-// genre: "Comedy"
-// last_modified: "1675863716"
-// added: "1675863716"
-// logo_path: "/home/superolmo/.xtream-cache/alibaba-zrrmxqh2gr2px3dp2lu7lc2cdjy_big.jpg"
-// name: "EN| Up Pompeii!"
-// num: 12183
-// plot: "Up Pompeii! is a British television comedy series broadcast between 1969 and 1970, starring Frankie Howerd. The first series was written by Talbot Rothwell, a scriptwriter for the Carry On films, and the second series by Rothwell and Sid Colin. Two later specials were transmitted in 1975 and 1991."
-// rating: "8"
-// rating_5based: 4
-// releaseDate: "1970-03-30"
-// series_id: 16448
-// youtube_trailer: ""
 
             var card = htmlToElement(html_card_series);
             var card_front = card.querySelector('.front');
@@ -628,9 +644,47 @@ function buildMovieCard(item)
     card_front.querySelector("#stream_title").innerHTML = stream_title;
     
     if ((stream_type == "series") || (stream_type == undefined)) {
+        // Populate back of series card
+        const card_back = card.querySelector('.back');
+        if (card_back) {
+            card_back.querySelector('#back_stream_title').textContent = stream_title;
+            if (item.plot) {
+                card_back.querySelector('#back_stream_plot').textContent = item.plot;
+            } else {
+                card_back.querySelector('#back_stream_plot').style.display = 'none';
+            }
+            let detailsHtml = '';
+            if (item.genre) detailsHtml += `<strong>Genre:</strong> ${item.genre}<br>`;
+            if (item.rating) detailsHtml += `<strong>Rating:</strong> ${item.rating}/${item.rating_5based}<br>`;
+            if (item.releaseDate) detailsHtml += `<strong>Release Date:</strong> ${item.releaseDate}<br>`;
+            if (item.director) detailsHtml += `<strong>Director:</strong> ${item.director}<br>`;
+            if (item.cast) detailsHtml += `<strong>Cast:</strong> ${item.cast}<br>`;
+            if (item.duration) detailsHtml += `<strong>Duration:</strong> ${item.duration} min<br>`;
+            card_back.querySelector('#back_stream_details').innerHTML = detailsHtml;
+        }
+
         card_front.querySelector("#open_series_btn").style.visibility = 'visible';
         card_front.querySelector('.open_series').setAttribute("series_id", stream_id);
     } else {
+        // Populate back of movie card
+        const card_back = card.querySelector('.back');
+        if (card_back) {
+            card_back.querySelector('#back_stream_title').textContent = stream_title;
+            if (item.plot) {
+                card_back.querySelector('#back_stream_plot').textContent = item.plot;
+            } else {
+                card_back.querySelector('#back_stream_plot').style.display = 'none';
+            }
+            let detailsHtml = '';
+            if (item.genre) detailsHtml += `<strong>Genre:</strong> ${item.genre}<br>`;
+            if (item.rating) detailsHtml += `<strong>Rating:</strong> ${item.rating}<br>`;
+            if (item.release_date) detailsHtml += `<strong>Release Date:</strong> ${item.release_date}<br>`;
+            if (item.director) detailsHtml += `<strong>Director:</strong> ${item.director}<br>`;
+            if (item.cast) detailsHtml += `<strong>Cast:</strong> ${item.cast}<br>`;
+            if (item.duration) detailsHtml += `<strong>Duration:</strong> ${item.duration} min<br>`;
+            card_back.querySelector('#back_stream_details').innerHTML = detailsHtml;
+        }
+
         card_front.querySelector("#play_video_btn").style.visibility = 'visible';
         card_front.querySelector('.play_movie').setAttribute("movie_url", stream_url);
         card_front.querySelector('.play_movie').setAttribute("movie_extension", stream_extension);
@@ -653,42 +707,10 @@ function buildMovieCard(item)
     if (page_country == undefined)
         return card;
 
-    if ((page_country == stream_country) || (page_country == "All Countries") || (page_country == ""))
+    if ((page_country == shortToLongLanguage(stream_country)) || (page_country == "All Countries") || (page_country == ""))
         return card;
 
     return "";
-}
-
-function renderPagination() {
-    const pagination = document.getElementById('pagination');
-    pagination.innerHTML = '';
-
-    // Previous button
-    const prevItem = document.createElement('li');
-    prevItem.className = `page-item ${session_paging.currentPage === 1 ? 'disabled' : ''}`;
-    prevItem.innerHTML = `<a class="page-link" href="#" onclick="changePage(${session_paging.currentPage - 1})">Previous</a>`;
-    pagination.appendChild(prevItem);
-
-    // Page numbers
-    for (let i = 1; i <= session_paging.totalPages; i++) {
-        const pageItem = document.createElement('li');
-        pageItem.className = `page-item ${i === session_paging.currentPage ? 'active' : ''}`;
-        pageItem.innerHTML = `<a class="page-link" href="#" onclick="changePage(${i})">${i}</a>`;
-        pagination.appendChild(pageItem);
-    }
-
-    // Next button
-    const nextItem = document.createElement('li');
-    nextItem.className = `page-item ${session_paging.currentPage === session_paging.totalPages ? 'disabled' : ''}`;
-    nextItem.innerHTML = `<a class="page-link" href="#" onclick="changePage(${session_paging.currentPage + 1})">Next</a>`;
-    pagination.appendChild(nextItem);
-}
-
-function changePage(render_page) {
-    if (render_page < 1 || render_page > session_paging.totalPages) return;
-    buildAllCardsFromSearch(render_page);
-    session_paging.currentPage = render_page;
-    renderPagination();
 }
 
 /**
@@ -701,43 +723,65 @@ async function fetchSearchResults(search_string)
     if (document.getElementById("searchString_INPUT").value == "")
         return ""
 
-    url = "http://localhost:5000/stream_search/" + document.getElementById("searchString_INPUT").value
+    url = API_BASE_URL + "/stream_search/" + document.getElementById("searchString_INPUT").value
 
     if (document.getElementById("searchStringType_INPUT").value != "")
     {
         url = url + "/" + document.getElementById("searchStringType_INPUT").value
     }
 
+    isLoading = true; // Set loading flag
     const response = await fetch(url);
-    session_data = await response.json();
-    console.log(`Found ${session_data.length} streams`);
+    all_streams_data = await response.json();
+    isLoading = false; // Unlock so loadAndRenderNextBatch can run
+    console.log(`Found ${all_streams_data.length} streams`);
 
-    /* Sort session_data by field added ascending */
-    session_data.sort(function(a, b){
+    /* Sort all_streams_data by field added ascending */
+    all_streams_data.sort(function(a, b){
         return b.added - a.added;
     });
 
-    // Calculate pagination values
-    session_paging.totalPages = Math.ceil(session_data.length / session_paging.itemsPerPage);
-    session_paging.currentPage = 1;
-    
-    buildAllCardsFromSearch(1);
-    renderPagination();
+    displayed_streams_count = 0; // Reset count for new search
+    hasMoreData = true; // Assume there's more data initially
+    document.getElementById("search_results").innerHTML = "<div class='row row-cols-1 row-cols-md-2 g-4'></div>"; // Clear existing cards and create the row container
+
+    loadAndRenderNextBatch(); // Load the first batch
 }
 
-function buildAllCardsFromSearch(render_page = 1)
-{
-    // Calculate start and end indices
-    const startIndex = (render_page - 1) * session_paging.itemsPerPage;
-    const endIndex = startIndex + session_paging.itemsPerPage;
-    const pageData = session_data.slice(startIndex, endIndex);
+/**
+ * Loads and renders the next batch of streams from all_streams_data.
+ */
+function loadAndRenderNextBatch() {
+    if (isLoading || !hasMoreData) {
+        return;
+    }
 
-    var searchResults = document.getElementById("search_results");
-    searchResults.innerHTML = "<div class='row row-cols-1 row-cols-md-2 g-4'></div>"
-    var searchResultsRow = searchResults.firstChild;
+    isLoading = true;
 
-    /* For every result stream, prepare and add a card to the search result div*/
-    pageData.every(item => {
+    const startIndex = displayed_streams_count;
+    const endIndex = Math.min(displayed_streams_count + streamsPerLoad, all_streams_data.length);
+    const streamsToRender = all_streams_data.slice(startIndex, endIndex);
+
+    if (streamsToRender.length > 0) {
+        appendCardsToDOM(streamsToRender);
+        displayed_streams_count += streamsToRender.length;
+    }
+
+    if (displayed_streams_count >= all_streams_data.length) {
+        hasMoreData = false;
+    }
+
+    isLoading = false;
+}
+
+/**
+ * Appends a batch of stream cards to the DOM.
+ * @param {Array} streams The array of stream objects to append.
+ */
+function appendCardsToDOM(streams) {
+    var searchResultsRow = document.querySelector("#search_results .row");
+
+    streams.forEach(item => {
         const newCard = buildMovieCard(item);
         if (newCard) {
             searchResultsRow.appendChild(newCard);
@@ -745,33 +789,23 @@ function buildAllCardsFromSearch(render_page = 1)
         return true;
     });
 
-    /* Attach to card body */
-    var cb_elements = document.getElementsByClassName("card-body");
-    for (i = 0; i < cb_elements.length; i++)
-    {
-        cb_elements[i].addEventListener('click', manage_card_events);
-    }
-
-    /* Attach to play movie */
-    var pm_elements = document.getElementsByClassName("play_movie");
-    for (i = 0; i < pm_elements.length; i++)
-    {
-        pm_elements[i].addEventListener('click', play_movie_action);
-    }
-
-    /* Attach to download movie */
-    var dm_elements = document.getElementsByClassName("download_movie");
-    for (i = 0; i < dm_elements.length; i++)
-    {
-        dm_elements[i].addEventListener('click',download_movie_action);
-    }
-
-    /* Attach to open series */
-    var os_elements = document.getElementsByClassName("open_series");
-    for (i = 0; i < os_elements.length; i++)
-    {
-        os_elements[i].addEventListener('click',open_series_action);
-    }
+    // Attach listeners to newly added elements (avoiding duplicates)
+    searchResultsRow.querySelectorAll(".card-body:not(.has-listener)").forEach(el => {
+        el.addEventListener('click', manage_card_events);
+        el.classList.add('has-listener');
+    });
+    searchResultsRow.querySelectorAll(".play_movie:not(.has-listener)").forEach(el => {
+        el.addEventListener('click', play_movie_action);
+        el.classList.add('has-listener');
+    });
+    searchResultsRow.querySelectorAll(".download_movie:not(.has-listener)").forEach(el => {
+        el.addEventListener('click', download_movie_action);
+        el.classList.add('has-listener');
+    });
+    searchResultsRow.querySelectorAll(".open_series:not(.has-listener)").forEach(el => {
+        el.addEventListener('click', open_series_action);
+        el.classList.add('has-listener');
+    });
 }
 
 /**
@@ -790,24 +824,24 @@ function logKey(event) {
  * Get the stream URL from element and pass it to video player
  * @param {event} event Element event
  */
- async function get_last_7days_action(event) {
-    url = "http://localhost:5000/get_last_7days"
+async function get_last_7days_action(event) {
+    url = API_BASE_URL + "/get_last_7days"
 
+    isLoading = true; // Set loading flag
     const response = await fetch(url);
-    session_data = await response.json();
-    console.log(`Found ${session_data.length} streams`);
+    all_streams_data = await response.json();
+    isLoading = false; // Unlock so loadAndRenderNextBatch can run
+    console.log(`Found ${all_streams_data.length} streams`);
 
     /* Sort page_data by field added ascending */
-    session_data.sort(function(a, b){
+    all_streams_data.sort(function(a, b){
         return b.added - a.added;
     });
 
-    // Calculate pagination values
-    session_paging.totalPages = Math.ceil(session_data.length / session_paging.itemsPerPage);
-    session_paging.currentPage = 1;
-
-    buildAllCardsFromSearch(1);
-    renderPagination();
+    displayed_streams_count = 0; // Reset count for new search
+    hasMoreData = true; // Assume there's more data initially
+    document.getElementById("search_results").innerHTML = "<div class='row row-cols-1 row-cols-md-2 g-4'></div>"; // Clear existing cards and create the row container
+    loadAndRenderNextBatch(); // Load the first batch
 }
 
 /**
@@ -815,37 +849,64 @@ function logKey(event) {
  * @param {event} event Element event
  */
 async function download_movie_action(event) {
-    //TODO: Add code to download movie
-    console.log("Call the download API for movie ID " + event.currentTarget.attributes.movie_id.value)
-    url = "http://localhost:5000/download_stream/" + event.currentTarget.attributes.movie_id.value
-    const response = await fetch(url);
-    session_data = await response.json();
-    if (response.status != 200)
-    {
-        console.log("Error, could not retrieve data");
-        console.log(response);
-    }
-    //Render DATA
-    console.log(session_data)
+    const btn = event.currentTarget;
+    const movie_id = btn.getAttribute("movie_id");
+    const originalHtml = btn.innerHTML;
+    const downloadUrl = `${API_BASE_URL}/download_stream/movie/${movie_id}/`;
+
+    console.log(`Initiating download for movie ID: ${movie_id}`);
+
+    // Trigger the download. We do not await this because the backend call is blocking.
+    fetch(downloadUrl).then(response => {
+        if (!response.ok) console.error("Download request failed");
+    }).catch(err => console.error("Error starting download:", err));
+
+    // UI feedback: disable button and start polling
+    btn.disabled = true;
+    
+    const progressInterval = setInterval(async () => {
+        const progressUrl = `${API_BASE_URL}/get_download_progress/${movie_id}/`;
+        try {
+            const response = await fetch(progressUrl);
+            const stats = await response.json();
+
+            if (stats.Total > 0) {
+                const percent = Math.min(100, Math.round((stats.Progress / stats.Total) * 100));
+                btn.innerHTML = `<span style="font-size: 0.75rem;">${percent}%</span>`;
+
+                if (percent >= 100) {
+                    clearInterval(progressInterval);
+                    btn.innerHTML = `<i class="bi bi-check-lg text-success"></i>`;
+                    btn.disabled = false;
+                    setTimeout(() => { btn.innerHTML = originalHtml; }, 5000);
+                }
+            }
+        } catch (error) {
+            console.error("Polling error:", error);
+            clearInterval(progressInterval);
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    }, 1000);
 }
 
 /**
  * Get the stream URL from element and pass it to video player
  * @param {event} event Element event
  */
- async function open_series_action(event) {
+async function open_series_action(event) {
     //TODO: Add code to open the series
     console.log("Call the open series API for series ID " + event.currentTarget.attributes.series_id.value)
-    url = "http://localhost:5000/get_series/" + event.currentTarget.attributes.series_id.value;
+    url = API_BASE_URL + "/get_series/" + event.currentTarget.attributes.series_id.value;
     const response = await fetch(url);
-    session_data = await response.json();
-    if (response.status != 200)
+    const series_data = await response.json(); // Renamed to avoid conflict with all_streams_data
+    if (response.status !== 200)
     {
         console.log("Error, could not retrieve data");
         console.log(response);
     }
     //Render DATA
-    console.log(session_data)
+    console.log(series_data)
 }
 
 /**
@@ -860,6 +921,12 @@ function play_movie_action(event) {
 
     if (allowed_extensions.includes(movie_extension))
     {
+        // If a player already exists, dispose of it to avoid conflicts
+        if (videojs.getPlayers()['video_player_id']) {
+            videojs('video_player_id').dispose();
+            document.getElementById('video_container').innerHTML = '<video id="video_player_id" class="video-js vjs-theme-city"></video>';
+        }
+
         var myPlayer = videojs('video_player_id', {liveui: true, controls: true, autoplay: true});
         myPlayer.aspectRatio('16:9');
         myPlayer.fluid(true);
@@ -871,9 +938,6 @@ function play_movie_action(event) {
             mime_type = "video/webm";
         }
         myPlayer.src({ type: mime_type, src: movie_url });
-        document.getElementById('myModal').addEventListener('hidden.bs.modal', function (event) {
-            videojs.players.video_player_id.pause()
-        })
 
         var myVideoModal = new bootstrap.Modal(document.getElementById('myModal'));
         myVideoModal.show();
@@ -904,6 +968,24 @@ function updateDropDownButtonLabel(txt)
 {
   var dropdownButton = document.querySelector('#countryDropdown');
   dropdownButton.innerHTML = txt;
+  localStorage.setItem('pyxtream_selectedCountry', txt); // Save to localStorage
+}
+
+// Properly dispose of the video player when the modal is closed
+document.getElementById('myModal').addEventListener('hidden.bs.modal', function (event) {
+    if (videojs.getPlayers()['video_player_id']) {
+        videojs('video_player_id').dispose();
+        // Re-create the video element because .dispose() removes it from the DOM
+        document.getElementById('video_container').innerHTML = '<video id="video_player_id" class="video-js vjs-theme-city"></video>';
+    }
+});
+
+// Scroll event handler for infinite scrolling
+function handleScroll() {
+    // Check if user is near the bottom of the page (e.g., within 500px)
+    if ((window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 500)) {
+        loadAndRenderNextBatch();
+    }
 }
 
 // Call the function to generate the dropdown when the page loads
@@ -913,5 +995,22 @@ generateCountryDropdown();
 document.getElementById("searchString_INPUT").addEventListener('keypress', logKey);
 document.getElementById("searchString_BTN").addEventListener('click', fetchSearchResults);
 document.getElementById("last7days_BTN").addEventListener('click', get_last_7days_action);
+window.addEventListener('scroll', handleScroll);
+
+// Initial load when the page first loads
+document.addEventListener('DOMContentLoaded', (event) => {
+    // Load selected country from localStorage on page load
+    const savedCountry = localStorage.getItem('pyxtream_selectedCountry');
+    if (savedCountry) {
+        updateDropDownButtonLabel(savedCountry);
+    }
+
+    // Trigger an initial search or load some default content
+    // For now, let's just load the first batch if all_streams_data is empty
+    // In a real app, you might have a default search or "recently added" list
+    if (all_streams_data.length === 0) {
+        get_last_7days_action(); // Load "7 Days" content by default
+    }
+});
 
 </script>

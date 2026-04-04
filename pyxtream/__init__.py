@@ -1,5 +1,5 @@
 
-from .pyxtream import Channel, Episode, Group, Serie, XTream
+from .pyxtream import Channel, Episode, Group, Season, Serie, XTream
 
 try:
     from .rest_api import FlaskWrap

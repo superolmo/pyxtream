@@ -29,7 +29,7 @@ class EndpointAction(object):
             # Add handlers here
             "stream_search_generic": lambda: self._handle_search(args['term']),
             "stream_search_with_type": lambda: self._handle_search(args['term'], args.get('type')),
-            "download_stream": lambda: self.action(int(args['stream_id'])),
+            "download_stream": lambda: self.action(str(args['stream_type']), int(args['stream_id'])),
             "get_download_progress": lambda: self.action(int(args['stream_id'])),
             "get_last_7days": lambda: self.action(),
             "home": lambda: self.action,
@@ -95,7 +95,7 @@ class FlaskWrap(Thread):
                           endpoint_name='stream_search_with_type',
                           handler=[self.xt.search_stream, 'stream_search_with_type']
                           )
-        self.add_endpoint(endpoint='/download_stream/<stream_id>/',
+        self.add_endpoint(endpoint='/download_stream/<stream_type>/<stream_id>/',
                           endpoint_name='download_stream',
                           handler=[self.xt.download_video, "download_stream"]
                           )
