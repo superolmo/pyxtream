@@ -311,3 +311,80 @@ def test_get_last_7days(mock_xtream):
     mock_xtream.movies_7days = [Channel(mock_xtream, "VOD", MOCK_STREAMS[1])]
     res = json.loads(mock_xtream.get_last_7days())
     assert len(res) == 1
+
+
+def test_multiple_instances_isolation(tmp_path):
+    """Test that 4 instances of the XTream class are fully isolated when used at the same time."""
+    configs = []
+    # 1. Define 4 distinct configurations
+    for i in range(4):
+        configs.append({
+            "name": f"Provider {i}",
+            "url": f"http://server{i}.com",
+            "user": f"user{i}",
+            "pass": f"pass{i}",
+            "cache": str(tmp_path / f"cache{i}"),
+            "auth_data": {
+                "user_info": {
+                    "username": f"user{i}",
+                    "password": f"pass{i}",
+                    "exp_date": str(int((datetime.now() + timedelta(days=30)).timestamp()))
+                },
+                "server_info": {"url": f"server{i}.com", "https_port": "443"}
+            }
+        })
+
+    instances = []
+    # 2. Mock requests.get to handle different URLs based on the user/pass credentials
+    with patch('requests.get') as mock_get:
+        def side_effect(url, **kwargs):
+            for c in configs:
+                if c["user"] in url and c["pass"] in url:
+                    resp = Mock()
+                    resp.ok = True
+                    resp.json.return_value = c["auth_data"]
+                    return resp
+            return Mock(ok=False, status_code=401)
+
+        mock_get.side_effect = side_effect
+
+        # 3. Create 4 instances
+        for c in configs:
+            # Ensure the directory exists so XTream doesn't reject the custom path
+            os.makedirs(c["cache"], exist_ok=True)
+            instances.append(XTream(
+                provider_name=c["name"],
+                provider_username=c["user"],
+                provider_password=c["pass"],
+                provider_url=c["url"],
+                cache_path=c["cache"]
+            ))
+
+    # 4. Verify isolation
+    for i in range(4):
+        inst = instances[i]
+        config = configs[i]
+        assert inst.name == config["name"]
+        assert inst.username == config["user"]
+        assert inst.cache_path == config["cache"]
+        assert inst.authorization["username"] == config["user"]
+        assert inst.state["authenticated"] is True
+
+        # Verify that modifying mutable collections in one instance doesn't affect others
+        inst.groups.append(f"unique_to_{i}")
+        inst.state[f"flag_{i}"] = True
+
+        # Test catch-all group isolation
+        # Create a dummy channel and add it to the catch-all group of this instance
+        dummy_channel = Channel(inst, "dummy", {
+            "stream_id": "99", "name": "N", "stream_icon": "http://i.com",
+            "stream_type": "live", "added": "1638316800"
+        })
+        inst.live_catch_all_group.channels.append(dummy_channel)
+
+        for j in range(4):
+            if i != j:
+                assert f"unique_to_{i}" not in instances[j].groups
+                assert f"flag_{i}" not in instances[j].state
+                # Check that the dummy channel is NOT found in other instances' groups
+                assert dummy_channel not in instances[j].live_catch_all_group.channels

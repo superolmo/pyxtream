@@ -18,8 +18,11 @@
 .venv
 /poetry.toml
 
+*.code-workspace
+
 # Distribution / packaging
 build/
 dist/
 *.egg-info/
 tmp/
+.env

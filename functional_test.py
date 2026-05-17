@@ -4,14 +4,22 @@ Test application to validate provider account access
 """
 
 import sys
+import os
 from time import sleep
-
+from timeit import default_timer as timer
+from dotenv import load_dotenv
 from pyxtream import XTream, __version__
 
-PROVIDER_NAME = ""
-PROVIDER_URL = ""
-PROVIDER_USERNAME = ""
-PROVIDER_PASSWORD = ""
+# Load environment variables from a local .env file
+load_dotenv()
+
+# Determine which provider prefix to use (defaults to 'PROVIDER' if not set)
+PREFIX = os.getenv("ACTIVE_PROVIDER", "PROVIDER")
+
+PROVIDER_NAME = os.getenv(f"{PREFIX}_NAME", "")
+PROVIDER_URL = os.getenv(f"{PREFIX}_URL", "")
+PROVIDER_USERNAME = os.getenv(f"{PREFIX}_USERNAME", "")
+PROVIDER_PASSWORD = os.getenv(f"{PREFIX}_PASSWORD", "")
 
 if PROVIDER_URL == "" or PROVIDER_USERNAME == "" or PROVIDER_PASSWORD == "":
     print("Please edit this file with the provider credentials")
@@ -95,8 +103,12 @@ while True:
             sys.exit(0)
 
         elif choice == 1:
+            dt = 0
+            start = timer()
             if not xt.load_iptv():
                 print("Something wrong")
+            dt = timer() - start
+            print(f"Loaded in {dt:.3f} sec")
 
         elif choice == 2:
             search_string = input("Search for REGEX (ex. '^Destiny.*$'): ")

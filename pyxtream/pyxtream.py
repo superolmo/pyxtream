@@ -38,35 +38,10 @@ try:
 except ImportError:
     USE_FLASK = False
 
-SSL_FIRST = True
-
 
 class Channel:
-    # Required by Hypnotix
-    info = ""
-    id = ""
-    name = ""  # What is the difference between the below name and title?
-    logo = ""
-    logo_path = ""
-    group_title = ""
-    title = ""
-    url = ""
-
-    # XTream
-    stream_type: str = ""
-    group_id: str = ""
-    is_adult: int = 0
-    added: int = 0
-    epg_channel_id: str = ""
-    age_days_from_added: int = 0
-    date_now: datetime
-
-    # This contains the raw JSON data
-    raw: dict = {}
-
-    def __init__(self, xtream: object, group_title, stream_info):
+    def __init__(self, xtream: object, group_title, stream_info: dict):
         self.date_now = datetime.now(timezone.utc)
-
         stream_type = stream_info["stream_type"]
         # Adjust the odd "created_live" type
         if stream_type in ("created_live", "radio_streams"):
@@ -75,6 +50,7 @@ class Channel:
         if stream_type not in ("live", "movie"):
             print(f"Error the channel has unknown stream type "
                   f"`{stream_type}`\n`{stream_info}`")
+            self.raw = {}
         else:
             # Raw JSON Channel
             self.raw = stream_info
@@ -135,16 +111,6 @@ class Channel:
 
 
 class Group:
-    # Required by Hypnotix
-    name = ""
-    group_type = ""
-
-    # XTream
-    group_id = ""
-
-    # This contains the raw JSON data
-    raw: dict = {}
-
     def convert_region_shortname_to_fullname(self, shortname):
 
         if shortname == "AR":
@@ -193,17 +159,7 @@ class Group:
 
 
 class Episode:
-    # Required by Hypnotix
-    title = ""
-    name = ""
-    info = ""
-
-    # XTream
-
-    # This contains the raw JSON data
-    raw: dict = {}
-
-    def __init__(self, xtream: object, series_info, group_title, episode_info) -> None:
+    def __init__(self, xtream: object, series_info, group_title, episode_info: dict) -> None:
         # Raw JSON Episode
         self.raw = episode_info
 
@@ -228,21 +184,7 @@ class Episode:
 
 
 class Serie:
-    # Required by Hypnotix
-    name = ""
-    logo = ""
-    logo_path = ""
-
-    # XTream
-    series_id = ""
-    plot = ""
-    youtube_trailer = ""
-    genre = ""
-
-    # This contains the raw JSON data
-    raw: dict = {}
-
-    def __init__(self, xtream: object, series_info):
+    def __init__(self, xtream: object, series_info: dict):
 
         series_info["added"] = series_info["last_modified"]
 
@@ -288,8 +230,6 @@ class Serie:
 
 
 class Season:
-    # Required by Hypnotix
-    name = ""
 
     def __init__(self, name):
         self.name = name
@@ -297,47 +237,13 @@ class Season:
 
 
 class XTream:
-
-    name = ""
-    server = ""
-    secure_server = ""
-    username = ""
-    password = ""
-    base_url = ""
-    base_url_ssl = ""
-
-    cache_path = ""
-
-    account_expiration: timedelta
-
-    live_type = "Live"
-    vod_type = "VOD"
-    series_type = "Series"
-
-    hide_adult_content = False
-
-    live_catch_all_group = Group(
-        {"category_id": "9999", "category_name": "xEverythingElse", "parent_id": 0}, live_type
-    )
-    vod_catch_all_group = Group(
-        {"category_id": "9999", "category_name": "xEverythingElse", "parent_id": 0}, vod_type
-    )
-    series_catch_all_group = Group(
-        {"category_id": "9999", "category_name": "xEverythingElse", "parent_id": 0}, series_type
-    )
-    # If the cached JSON file is older than threshold_time_sec then load a new
-    # JSON dictionary from the provider
-    threshold_time_sec = -1
-
-    validate_json: bool = True
-
     def __init__(
         self,
         provider_name: str,
         provider_username: str,
         provider_password: str,
         provider_url: str,
-        headers: dict = None,
+        headers: dict = {},
         hide_adult_content: bool = False,
         cache_path: str = "",
         reload_time_sec: int = 60*60*8,
@@ -381,6 +287,19 @@ class XTream:
         self.hide_adult_content = hide_adult_content
         self.threshold_time_sec = reload_time_sec
         self.validate_json = validate_json
+        self.live_type = "Live"
+        self.vod_type = "VOD"
+        self.series_type = "Series"
+
+        self.live_catch_all_group = Group(
+            {"category_id": "9999", "category_name": "xEverythingElse", "parent_id": 0}, self.live_type
+        )
+        self.vod_catch_all_group = Group(
+            {"category_id": "9999", "category_name": "xEverythingElse", "parent_id": 0}, self.vod_type
+        )
+        self.series_catch_all_group = Group(
+            {"category_id": "9999", "category_name": "xEverythingElse", "parent_id": 0}, self.series_type
+        )
 
         self.auth_data = {}
         self.authorization = {'username': '', 'password': ''}
@@ -775,18 +694,17 @@ class XTream:
             return False
 
     def load_iptv(self) -> bool:
-        """Load XTream IPTV
+        """
+        Orchestrates the loading and processing of IPTV content (Live TV, VOD, and Series).
 
-        - Add all Live TV to XTream.channels
-        - Add all VOD to XTream.movies
-        - Add all Series to XTream.series
-          Series contains Seasons and Episodes. Those are not automatically
-          retrieved from the server to reduce the loading time.
-        - Add all groups to XTream.groups
-          Groups are for all three channel types, Live TV, VOD, and Series
+        It manages a full data ingestion cycle: checking local cache for freshness,
+        fetching data from the provider when necessary, validating records against
+        JSON schemas, and organizing the resulting objects into structured
+        collections. It populates groups, channels, movies, and series while
+        handling filtering for adult content and missing metadata.
 
         Returns:
-            bool: True if successful, False if error
+            bool: True if successful
         """
         # If pyxtream has not authenticated the connection, return empty
         if self.state["authenticated"] is False:

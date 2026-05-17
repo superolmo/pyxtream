@@ -32,6 +32,7 @@ class EndpointAction(object):
             "download_stream": lambda: self.action(str(args['stream_type']), int(args['stream_id'])),
             "get_download_progress": lambda: self.action(int(args['stream_id'])),
             "get_last_7days": lambda: self.action(),
+            "get_last_30days": lambda: self.action(),
             "home": lambda: self.action,
             "get_series": lambda: self.action(int(args['series_id']), "JSON")
         }
@@ -106,6 +107,10 @@ class FlaskWrap(Thread):
         self.add_endpoint(endpoint='/get_last_7days',
                           endpoint_name='get_last_7days',
                           handler=[self.xt.get_last_7days, "get_last_7days"]
+                          )
+        self.add_endpoint(endpoint='/get_last_30days',
+                          endpoint_name='get_last_30days',
+                          handler=[self.xt.get_last_30days, "get_last_30days"]
                           )
         self.add_endpoint(endpoint='/get_series/<series_id>',
                           endpoint_name='get_series',
