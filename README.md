@@ -1,21 +1,21 @@
 # PyXtream - A Python Xtream Loader
 
-PyXtream loads the xtream IPTV content from a provider server. Groups, Channels, Series are all organized in dictionaries. Season and Episodes are retrieved as needed. It includes functions for searching streams and downloading.
+PyXtream loads the xtream IPTV content from a provider server. Groups, Channels, Series are all organized in dictionaries. Season and Episodes are retrieved as needed. It includes functions for searching streams and downloading, and is designed for full isolation in multi-instance scenarios.
 
 This library was originally designed to work with Hypnotix at https://github.com/linuxmint/hypnotix, so its compatibility with Hypnotix takes precedence.
 
-# Installing
+# Installation
 
-Installing pyxtream is done using pip3.
+Installing pyxtream is done using pip or poetry.
 
 ```shell
-pip3 install pyxtream
+pip install pyxtream
 ```
 
 Optionally, to use the REST Api service, install also Flask via the following command or manually.
 
 ```shell
-pip3 install pyxtream[REST_API]
+pip install pyxtream[REST_API]
 ```
 
 
@@ -28,7 +28,7 @@ Integrating in your application is simple. Initialization and loading of IPTV ch
 ```python
 from pyxtream import XTream
 xt = XTream(servername, username, password, url)
-if xt.authData != {}:
+if xt.auth_data != {}:
     xt.load_iptv()
 else:
     print("Could not connect")
@@ -107,6 +107,7 @@ Follows the Semantic Versioning from https://semver.org/
 
 | Date | Version | Description |
 | ----------- | -----| ----------- |
+| 2026-05-01 | 0.9.0 | - Improved isolation between multiple XTream instances by moving catch-all groups and mutable attributes to the instance level<br>- Added lists for content added in the last 7 and 30 days<br>- Updated documentation with test coverage details |
 | 2026-04-03 | 0.8.0 | - Added more PyTest functions<br>- Refactored index.html to better show cards<br>- Refactored pyxtream.py with types<br> - Removed cli progress bar<br>- Fixed issue with loading series [max298](https://github.com/max298)<br> - Fixed empty logo issue [max298](https://github.com/max298)
 | 2025-02-17 | 0.7.3 | - Added Initial PyTest and Coverage<br>- Added timestamp field "added" to Series to match channels "added" field<br>- Added string field "url" to Series to quickly get the series download address<br>- Added new API "get_last_7days()" returns the last added streams in the last 7 days in JSON format<br>- Added new API "get_download_progress()" returns information on the current download stream in JSON format<br>- Changed internal function _load_series_info_by_id_from_provider to allow returned value to change to JSON<br>- Changed search_stream function to only search in specific collections<br>- Refactored "rest_api.py" to make it easier to extend in the future<br>- Added new rest API<br>- Changed to Poetry environment<br>- Changed Functional Test to test loading series information<br>- Changed sample index.html to test more features|
 | 2024-09-02 | 0.7.2 | - Added missing request package to setup.py<br>- Refactored the search stream function and now, it can search for a specific stream type<br>- Refactored the download stream function<br>- Refactored the _get_request function and removed the call to the sleep function<br>- Added functional test to get series json output from a series_id<br>- Added functional test to get EPG for a specific stream ID<br>- Added xtream account expiration date printed on the console during authentication<br>- Improved results with the Flask HTML page and differentiating between movies and series<br>- Improved code readability|
