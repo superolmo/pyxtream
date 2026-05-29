@@ -1,18 +1,6 @@
 #!/usr/bin/python3
 """
-pyxtream
-
-Module handles downloading xtream data.
-
-Part of this content comes from
-- https://github.com/chazlarson/py-xtream-codes/blob/master/xtream.py
-- https://github.com/linuxmint/hypnotix
-
-> _Author_: Claudio Olmi
-> _Github_: superolmo
-
-
-> _Note_: It does not support M3U
+High-performance Python library for Xtream Codes IPTV panels. Supports Live TV, VOD, and Series.
 """
 
 import json
@@ -25,12 +13,31 @@ from os import makedirs
 from os import path as osp
 # Timing xtream json downloads
 from timeit import default_timer as timer
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import requests
 
 from pyxtream import api
 from pyxtream.schemaValidator import SchemaType, schemaValidator
+from pyxtream.constants import (
+    AUTH_LOOP_EXIT_VALUE,
+    AUTH_MAX_ATTEMPTS,
+    AUTH_TIMEOUT_SEC,
+    CATCH_ALL_CATEGORY_ID,
+    DEFAULT_FLASK_PORT,
+    DEFAULT_RELOAD_TIME_SEC,
+    DOWNLOAD_BLOCK_SIZE,
+    DOWNLOAD_TIMEOUT_SEC,
+    KB_FACTOR,
+    MB_FACTOR,
+    MOVIES_RECENT_30_DAYS_THRESHOLD,
+    MOVIES_RECENT_7_DAYS_THRESHOLD,
+    REQUEST_BLOCK_SIZE,
+    REQUEST_DEFAULT_TIMEOUT,
+    REQUEST_MAX_ATTEMPTS,
+    SECONDS_IN_DAY,
+    SECONDS_IN_YEAR,
+)
 
 try:
     from pyxtream.rest_api import FlaskWrap
@@ -40,16 +47,17 @@ except ImportError:
 
 
 class Channel:
+    """Represents a Live TV or VOD stream."""
     def __init__(self, xtream: object, group_title, stream_info: dict):
         self.date_now = datetime.now(timezone.utc)
-        stream_type = stream_info["stream_type"]
+        self.stream_type = stream_info["stream_type"]
         # Adjust the odd "created_live" type
-        if stream_type in ("created_live", "radio_streams"):
-            stream_type = "live"
+        if self.stream_type in ("created_live", "radio_streams"):
+            self.stream_type = "live"
 
-        if stream_type not in ("live", "movie"):
+        if self.stream_type not in ("live", "movie"):
             print(f"Error the channel has unknown stream type "
-                  f"`{stream_type}`\n`{stream_info}`")
+                  f"`{self.stream_type}`\n`{stream_info}`")
             self.raw = {}
         else:
             # Raw JSON Channel
@@ -71,14 +79,14 @@ class Channel:
 
             stream_extension = ""
 
-            if stream_type == "live":
+            if self.stream_type == "live":
                 stream_extension = "ts"
 
                 # Check if epg_channel_id key is available
                 if "epg_channel_id" in stream_info.keys():
                     self.epg_channel_id = stream_info["epg_channel_id"]
 
-            elif stream_type == "movie":
+            elif self.stream_type == "movie":
                 stream_extension = stream_info["container_extension"]
 
             # Default to 0
@@ -93,7 +101,7 @@ class Channel:
                 ).days
 
             # Required by Hypnotix
-            self.url = f"{xtream.server}/{stream_type}/{xtream.authorization['username']}/" \
+            self.url = f"{xtream.server}/{self.stream_type}/{xtream.authorization['username']}/" \
                        f"{xtream.authorization['password']}/{stream_info['stream_id']}.{stream_extension}"
 
             # Check that the constructed URL is valid
@@ -101,6 +109,7 @@ class Channel:
                 print(f"{self.name} - Bad URL? `{self.url}`")
 
     def export_json(self):
+        """Return a dictionary representation of the channel with its computed URL."""
         jsondata = {}
 
         jsondata["url"] = self.url
@@ -111,6 +120,7 @@ class Channel:
 
 
 class Group:
+    """Represents a category of channels, movies, or series."""
     def convert_region_shortname_to_fullname(self, shortname):
 
         if shortname == "AR":
@@ -159,6 +169,7 @@ class Group:
 
 
 class Episode:
+    """Represents a single episode of a TV series."""
     def __init__(self, xtream: object, series_info, group_title, episode_info: dict) -> None:
         # Raw JSON Episode
         self.raw = episode_info
@@ -184,6 +195,7 @@ class Episode:
 
 
 class Serie:
+    """Represents a TV Series collection."""
     def __init__(self, xtream: object, series_info: dict):
 
         series_info["added"] = series_info["last_modified"]
@@ -221,6 +233,7 @@ class Serie:
                    f"{xtream.authorization['password']}/{self.series_id}/"
 
     def export_json(self):
+        """Return a dictionary representation of the series."""
         jsondata = {}
 
         jsondata.update(self.raw)
@@ -230,6 +243,7 @@ class Serie:
 
 
 class Season:
+    """Represents a specific season within a series."""
 
     def __init__(self, name):
         self.name = name
@@ -237,6 +251,7 @@ class Season:
 
 
 class XTream:
+    """Core client for interacting with Xtream Codes IPTV providers."""
     def __init__(
         self,
         provider_name: str,
@@ -246,38 +261,30 @@ class XTream:
         headers: dict = {},
         hide_adult_content: bool = False,
         cache_path: str = "",
-        reload_time_sec: int = 60*60*8,
+        reload_time_sec: int = DEFAULT_RELOAD_TIME_SEC,
         validate_json: bool = False,
         enable_flask: bool = False,
         debug_flask: bool = True,
-        flask_port: int = 5000
+        flask_port: int = DEFAULT_FLASK_PORT
             ):
-        """Initialize Xtream Class
+        """Initialize the XTream client.
+
+        Sets up the connection parameters, authentication state, and local cache
+        configuration for interacting with an Xtream Codes IPTV provider.
 
         Args:
-            provider_name     (str):            Name of the IPTV provider
-            provider_username (str):            User name of the IPTV provider
-            provider_password (str):            Password of the IPTV provider
-            provider_url      (str):            URL of the IPTV provider
-            headers           (dict):           Requests Headers
-            hide_adult_content(bool, optional): When `True` hide stream that are marked for adult
-            cache_path        (str, optional):  Location where to save loaded files.
-                                                Defaults to empty string.
-            reload_time_sec   (int, optional):  Number of seconds before automatic reloading
-                                                (-1 to turn it OFF)
-            validate_json     (bool, optional): Check Xtream API provided JSON for validity
-            enable_flask      (bool, optional): Enable Flask
-            debug_flask       (bool, optional): Enable the debug mode in Flask
-            flask_port        (int, optional):  Flask Port Number
-
-        Returns: XTream Class Instance
-
-        - Note 1: If it fails to authorize with provided username and password,
-                auth_data will be an empty dictionary.
-        - Note 2: The JSON validation option will take considerable amount of time and it should be
-                    used only as a debug tool. The Xtream API JSON from the provider passes through a
-                    schema that represent the best available understanding of how the Xtream API
-                    works.
+            provider_name (str): Human-readable name of the IPTV provider.
+            provider_username (str): Username for authentication.
+            provider_password (str): Password for authentication.
+            provider_url (str): Base URL of the IPTV provider.
+            headers (dict, optional): Custom HTTP headers for requests. Defaults to {}.
+            hide_adult_content (bool, optional): If True, filters out adult content. Defaults to False.
+            cache_path (str, optional): Directory for local data persistence. Defaults to "".
+            reload_time_sec (int, optional): Cache TTL in seconds. Defaults to DEFAULT_RELOAD_TIME_SEC.
+            validate_json (bool, optional): If True, validates responses against schemas. Defaults to False.
+            enable_flask (bool, optional): If True, starts the REST API server. Defaults to False.
+            debug_flask (bool, optional): If True, enables Flask debug mode. Defaults to True.
+            flask_port (int, optional): Port for the Flask server. Defaults to DEFAULT_FLASK_PORT.
         """
         self.server = provider_url
         self.username = provider_username
@@ -313,7 +320,7 @@ class XTream:
 
         self.connection_headers = {}
 
-        self.state = {'authenticated': False, 'loaded': False}
+        self.state = {'authenticated': False, 'loaded': False, 'offline': False}
 
         # Used by REST API to get download progress
         self.download_progress: dict = {'StreamId': 0, 'Total': 0, 'Progress': 0}
@@ -363,34 +370,73 @@ class XTream:
                 self.printx("Web interface not running")
 
     def printx(self, msg: str, end="\n", flush=True):
+        """Print a message prefixed with the provider name.
+
+        Useful for logging multiple instances of the XTream class simultaneously.
+
+        Args:
+            msg (str): The message to be printed.
+            end (str, optional): The string appended after the last value. Defaults to "\\n".
+            flush (bool, optional): Whether to forcibly flush the stream. Defaults to True.
+        """
         print(f"{self.name}: {msg}", end=end, flush=flush)
 
     def get_download_progress(self, stream_id: int = None):
+        """Return the current download progress as a JSON string.
+
+        Retrieves the state of the downloader, including total bytes and progress.
+
+        Args:
+            stream_id (int, optional): The specific stream ID to check. Currently unused.
+
+        Returns:
+            str: A JSON-formatted string containing 'StreamId', 'Total', and 'Progress'.
+        """
         # TODO: Add check for stream specific ID
         return json.dumps(self.download_progress)
 
     def get_last_7days(self):
+        """Return movies added in the last 7 days as a JSON string.
+
+        Returns:
+            str: A JSON-formatted list of movies added recently.
+        """
         return json.dumps(self.movies_7days, default=lambda x: x.export_json())
 
     def get_last_30days(self):
+        """Return movies added in the last 30 days as a JSON string.
+
+        Returns:
+            str: A JSON-formatted list of movies added in the last month.
+        """
         return json.dumps(self.movies_30days, default=lambda x: x.export_json())
+
+    def get_state(self):
+        """Return the current authentication and loading state as a JSON string.
+
+        Returns:
+            str: A JSON string containing 'authenticated', 'loaded', and 'offline' flags.
+        """
+        return json.dumps(self.state)
 
     def search_stream(self, keyword: str,
                       ignore_case: bool = True,
                       return_type: str = "LIST",
                       stream_type: list = ("series", "movies", "channels"),
                       added_after: datetime = None) -> list:
-        """Search for streams
+        """Search for streams across the loaded collection.
+
+        Uses regular expressions to find matches in titles across specified stream types.
 
         Args:
-            keyword (str): Keyword to search for. Supports REGEX
-            ignore_case (bool, optional): True to ignore case during search. Defaults to "True".
-            return_type (str, optional): Output format, 'LIST' or 'JSON'. Defaults to "LIST".
-            stream_type (list, optional): Search within specific stream type.
-            added_after (datetime, optional): Search for items that have been added after a certain date.
+            keyword (str): The regex pattern or search term.
+            ignore_case (bool, optional): Whether to ignore case in the regex. Defaults to True.
+            return_type (str, optional): The output format, either 'LIST' or 'JSON'. Defaults to "LIST".
+            stream_type (list, optional): Collections to search in. Defaults to ("series", "movies", "channels").
+            added_after (datetime, optional): Filter results added after this date.
 
         Returns:
-            list: List with all the results, it could be empty.
+            list: A list of matching items in the requested format (LIST or JSON string).
         """
 
         search_result = []
@@ -424,30 +470,39 @@ class XTream:
 
         return search_result
 
-    def download_video(self, stream_type: str, stream_id: int) -> str:
-        """Download Video from Stream ID
+    def download_video(self, stream_id: int) -> str:
+        """Download a video stream by its ID and return the local file path.
+
+        Attempts to resolve the stream ID to a movie or series episode and downloads it.
 
         Args:
-            stream_id (int): String identifying the stream ID
+            stream_id (int): The unique ID of the stream to download.
 
         Returns:
-            str: Absolute Path Filename where the file was saved. Empty string if could not download
+            str: The absolute local path to the downloaded file, or an empty string on failure.
         """
         url = ""
         filename = ""
-        if stream_type == "series":
-            for series_stream in self.series:
-                if series_stream.series_id == stream_id:
-                    episode_object: Episode = series_stream.episodes["1"]
-                    url = f"{series_stream.url}/{episode_object.id}."\
-                        f"{episode_object.container_extension}"
 
-        if stream_type == "movie":
+        # Search for the stream_id within series
+        for series_stream in self.series:
+            if series_stream.series_id == stream_id:
+                if series_stream.episodes and "1" in series_stream.episodes:
+                    episode_object: Episode = series_stream.episodes["1"]
+                    url = f"{series_stream.url}/{episode_object.id}.{episode_object.container_extension}"
+                    # Construct a local filename for the episode
+                    fn = f"{self._slugify(series_stream.name)}-E1.{episode_object.container_extension}"
+                    filename = osp.join(self.cache_path, fn)
+                break
+
+        # Search for the stream_id within movies (streams) if not found in series
+        if not url:
             for stream in self.movies:
                 if stream.id == stream_id:
                     url = stream.url
                     fn = f"{self._slugify(stream.name)}.{stream.raw['container_extension']}"
                     filename = osp.join(self.cache_path, fn)
+                    break
 
         # If the url was correctly built and file does not exists, start downloading
         if url == "":
@@ -460,17 +515,19 @@ class XTream:
         return ""
 
     def _download_video_impl(self, url: str, fullpath_filename: str) -> bool:
-        """Download a stream
+        """Internal implementation for downloading a stream.
+
+        Handles chunked downloading, progress updates, and resumable transfers via Range headers.
 
         Args:
-            url (str): Complete URL of the stream
-            fullpath_filename (str): Complete File path where to save the stream
+            url (str): The direct URL of the video stream.
+            fullpath_filename (str): The local destination path.
 
         Returns:
-            bool: True if successful, False if error
+            bool: True if the download completed successfully, False otherwise.
         """
         ret_code = False
-        mb_size = 1024*1024
+        mb_size = MB_FACTOR
         headers = self.connection_headers.copy()
         try:
             self.printx(f"Downloading from URL `{url}` and saving at `{fullpath_filename}`")
@@ -488,7 +545,7 @@ class XTream:
 
             # Make the request to download
             response = requests.get(
-                url, timeout=(10),
+                url, timeout=(DOWNLOAD_TIMEOUT_SEC),
                 stream=True,
                 allow_redirects=True,
                 headers=headers
@@ -508,7 +565,7 @@ class XTream:
                 self.download_progress['Progress'] = 0
 
                 # Set stream blocks
-                block_bytes = int(4*mb_size)     # 4 MB
+                block_bytes = int(DOWNLOAD_BLOCK_SIZE)
 
                 self.printx(f"Ready to download {total_content_size_mb:.1f} "
                             f"MB file ({total_content_size})"
@@ -536,20 +593,25 @@ class XTream:
         return ret_code
 
     def _slugify(self, string: str) -> str:
-        """Normalize string
-
-        Normalizes string, converts to lowercase, removes non-alpha characters,
-        and converts spaces to hyphens.
+        """Convert a string to a safe filename format.
 
         Args:
-            string (str): String to be normalized
+            string (str): Input string.
 
         Returns:
-            str: Normalized String
+            str: A lowercase, sanitized string.
         """
         return "".join(x.lower() for x in string if x.isprintable())
 
     def _validate_url(self, url: str) -> bool:
+        """Check if a URL string has a valid format.
+
+        Args:
+            url (str): The URL to validate.
+
+        Returns:
+            bool: True if valid, False otherwise.
+        """
         regex = re.compile(
             r"^(?:http|ftp)s?://"  # http:// or https://
             r"(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|"  # domain...
@@ -563,13 +625,13 @@ class XTream:
         return re.match(regex, url) is not None
 
     def _get_logo_local_path(self, logo_url: str) -> str:
-        """Convert the Logo URL to a local Logo Path
+        """Generate a local cache path for a stream logo URL.
 
         Args:
-            logoURL (str): The Logo URL
+            logo_url (str): The remote URL of the logo.
 
         Returns:
-            [type]: The logo path as a string or None
+            str: The local file path where the logo should be cached.
         """
         local_logo_path = None
         if logo_url is not None:
@@ -583,7 +645,13 @@ class XTream:
         return local_logo_path
 
     def authenticate(self):
-        """Login to provider"""
+        """Authenticate with the provider and initialize base URLs.
+
+        Attempts to log in using the player_api.php endpoint. On failure, it triggers
+        the offline fallback mechanism if a local cache exists.
+
+        Sets the authentication state and base URLs for subsequent API calls.
+        """
         # If we have not yet successfully authenticated, attempt authentication
         if self.state["authenticated"] is False:
             # Erase any previous data
@@ -594,11 +662,14 @@ class XTream:
             # Prepare the authentication url
             url = f"{self.server}/player_api.php?username={self.username}&password={self.password}"
             self.printx("Attempting connection... ", end='')
-            while i < 30:
+            while i < AUTH_MAX_ATTEMPTS:
                 try:
-                    # Request authentication, wait 4 seconds maximum
-                    r = requests.get(url, timeout=(4), headers=self.connection_headers)
-                    i = 31
+                    # Request authentication, wait AUTH_TIMEOUT_SEC seconds maximum
+                    r = requests.get(url, timeout=(AUTH_TIMEOUT_SEC), headers=self.connection_headers)
+                    if r.ok:
+                        i = AUTH_LOOP_EXIT_VALUE
+                    else:
+                        i += 1
                 except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
                     time.sleep(1)
                     print(f"{i} ", end='', flush=True)
@@ -631,17 +702,49 @@ class XTream:
                 else:
                     print("")
                     self.printx(f"Provider `{self.name}` could not be loaded. Reason: `{r.status_code} {r.reason}`")
+                    self._fallback_to_offline()
             else:
                 self.printx(f"\n{self.name}: Provider refused the connection")
+                self._fallback_to_offline()
 
-    def _load_from_file(self, filename) -> dict:
-        """Try to load the dictionary from file
+    def _fallback_to_offline(self):
+        """Check for local cache and enter offline mode if available"""
+        cache_exists = False
+        for stream_type in (self.live_type, self.vod_type, self.series_type):
+            filename = f"all_groups_{stream_type}.json"
+            full_filename = osp.join(self.cache_path, f"{self._slugify(self.name)}-{filename}")
+            if osp.isfile(full_filename):
+                cache_exists = True
+                break
+
+        if cache_exists:
+            self.printx("Offline mode active: Using local cache fallback")
+            self.state["offline"] = True
+            self.authorization = {
+                "username": self.username,
+                "password": self.password
+            }
+            self.auth_data = {
+                "user_info": {
+                    "username": self.username,
+                    "password": self.password,
+                    "exp_date": str(int(datetime.now(timezone.utc).timestamp() + SECONDS_IN_YEAR))
+                },
+                "server_info": {"url": self.server}
+            }
+            self.base_url = f"{self.server}/player_api.php?username={self.username}&password={self.password}"
+            self.state["authenticated"] = True
+        else:
+            self.printx("No local cache available.")
+
+    def _load_from_file(self, filename: str) -> Optional[Any]:
+        """Load a JSON structure from the local cache.
 
         Args:
-            filename ([type]): File name containing the data
+            filename (str): The name of the file to load (without provider prefix).
 
         Returns:
-            dict: Dictionary if found and no errors, None if file does not exists
+            Optional[Any]: The loaded data if fresh and available, otherwise None.
         """
         # Build the full path
         full_filename = osp.join(self.cache_path, f"{self._slugify(self.name)}-{filename}")
@@ -649,37 +752,31 @@ class XTream:
         # If the cached file exists, attempt to load it
         if osp.isfile(full_filename):
 
-            my_data = None
-
             # Get the elapsed seconds since last file update
             file_age_sec = time.time() - osp.getmtime(full_filename)
             # If the file was updated less than the threshold time,
             # it means that the file is still fresh, we can load it.
+            # If threshold is -1, we force load from file regardless of age (Persistence Mode).
             # Otherwise skip and return None to force a re-download
-            if self.threshold_time_sec > file_age_sec:
+            if self.state['offline'] or self.threshold_time_sec == -1 or self.threshold_time_sec > file_age_sec:
                 # Load the JSON data
                 try:
                     with open(full_filename, mode="r", encoding="utf-8") as myfile:
-                        my_data = json.load(myfile)
-                        if len(my_data) == 0:
-                            my_data = None
+                        return json.load(myfile) or None
                 except Exception as e:
                     self.printx(f" - Could not load from file `{full_filename}`: e=`{e}`")
-            return my_data
 
         return None
 
     def _save_to_file(self, data_list: dict, filename: str) -> bool:
-        """Save a dictionary to file
-
-        This function will overwrite the file if already exists
+        """Save a dictionary as a JSON file in the local cache.
 
         Args:
-            data_list (dict): Dictionary to save
-            filename (str): Name of the file
+            data_list (dict): Data to be persisted.
+            filename (str): Local filename.
 
         Returns:
-            bool: True if successful, False if error
+            bool: True if saving was successful.
         """
         if data_list is None:
             return False
@@ -694,17 +791,13 @@ class XTream:
             return False
 
     def load_iptv(self) -> bool:
-        """
-        Orchestrates the loading and processing of IPTV content (Live TV, VOD, and Series).
+        """Orchestrates the loading and processing of all IPTV content.
 
-        It manages a full data ingestion cycle: checking local cache for freshness,
-        fetching data from the provider when necessary, validating records against
-        JSON schemas, and organizing the resulting objects into structured
-        collections. It populates groups, channels, movies, and series while
-        handling filtering for adult content and missing metadata.
+        Iterates through Live, VOD, and Series types. Loads categories and streams
+        from the local cache if available and fresh, or fetches them from the provider.
 
         Returns:
-            bool: True if successful
+            bool: True if the loading cycle completed successfully.
         """
         # If pyxtream has not authenticated the connection, return empty
         if self.state["authenticated"] is False:
@@ -827,7 +920,7 @@ class XTream:
                         # Some channels have no group,
                         # so let's add them to the catch all group
                         if not stream_channel["category_id"]:
-                            stream_channel["category_id"] = "9999"
+                            stream_channel["category_id"] = str(CATCH_ALL_CATEGORY_ID)
                         elif stream_channel["category_id"] != "1":
                             pass
 
@@ -870,16 +963,19 @@ class XTream:
 
                         # Save the new channel to the local list of channels
                         if loading_stream_type == self.live_type:
-                            if new_channel.group_id == "9999":
+                            if new_channel.group_id == CATCH_ALL_CATEGORY_ID:
                                 self.printx(f" - xEverythingElse Channel -> {new_channel.name} - {new_channel.stream_type}")
                             self.channels.append(new_channel)
                         elif loading_stream_type == self.vod_type:
-                            if new_channel.group_id == "9999":
-                                self.printx(f" - xEverythingElse Channel -> {new_channel.name} - {new_channel.stream_type}")
+                            if new_channel.group_id == CATCH_ALL_CATEGORY_ID:
+                                try:
+                                    self.printx(f" - xEverythingElse Channel -> {new_channel.name} - {new_channel.stream_type}")
+                                except AttributeError as e:
+                                    print(f"{new_channel.raw} {e}")
                             self.movies.append(new_channel)
-                            if new_channel.age_days_from_added < 31:
+                            if new_channel.age_days_from_added < MOVIES_RECENT_30_DAYS_THRESHOLD:
                                 self.movies_30days.append(new_channel)
-                            if new_channel.age_days_from_added < 7:
+                            if new_channel.age_days_from_added < MOVIES_RECENT_7_DAYS_THRESHOLD:
                                 self.movies_7days.append(new_channel)
                         else:
                             self.series.append(new_series)
@@ -906,7 +1002,14 @@ class XTream:
         return True
 
     def _save_to_file_skipped_streams(self, stream_channel: Channel):
+        """Log skipped streams to a local JSON file for debugging.
 
+        Args:
+            stream_channel (Channel): The channel object being skipped.
+
+        Returns:
+            bool: True if logging succeeded.
+        """
         # Build the full path
         full_filename = osp.join(self.cache_path, "skipped_streams.json")
 
@@ -922,10 +1025,10 @@ class XTream:
         return False
 
     def get_series_info_by_id(self, get_series: dict):
-        """Get Seasons and Episodes for a Series
+        """Fetch and populate seasons and episodes for a specific series object.
 
         Args:
-            get_series (dict): Series dictionary
+            get_series (Serie): The series object to be populated with detailed data.
         """
 
         series_seasons = self._load_series_info_by_id_from_provider(get_series.series_id)
@@ -966,24 +1069,22 @@ class XTream:
         else:
             self.printx(f" - An unexpected error occurred: {exception}")
 
-    def _get_request(self, url: str, timeout: Tuple[int, int] = (2, 15)) -> Optional[dict]:
-        """Generic GET Request with Error handling
+    def _get_request(self, url: str, timeout: Tuple[int, int] = REQUEST_DEFAULT_TIMEOUT) -> Optional[dict]:
+        """Perform a GET request with retries and progress reporting.
 
         Args:
-            URL (str): The URL where to GET content
-            timeout (Tuple[int, int], optional): Connection and Downloading Timeout.
-                                                 Defaults to (2,15).
+            url (str): The target URL.
+            timeout (Tuple[int, int], optional): Connection and read timeout.
 
         Returns:
-            Optional[dict]: JSON dictionary of the loaded data, or None
+            Optional[dict]: The parsed JSON response, or None on error.
         """
 
-        kb_size = 1024
         all_data = []
         down_stats = {"bytes": 0, "kbytes": 0, "mbytes": 0, "start": 0.0, "delta_sec": 0.0}
 
         response = None
-        for attempt in range(10):
+        for attempt in range(REQUEST_MAX_ATTEMPTS):
             try:
                 response = requests.get(
                     url,
@@ -1005,13 +1106,13 @@ class XTream:
             down_stats["bytes"] = 0
 
             # Set stream blocks
-            block_bytes = int(1*kb_size*kb_size)     # 1 MB
+            block_bytes = int(REQUEST_BLOCK_SIZE)
 
             # Grab data by block_bytes
             for data in response.iter_content(block_bytes, decode_unicode=False):
                 down_stats["bytes"] += len(data)
-                down_stats["kbytes"] = down_stats["bytes"]/kb_size
-                down_stats["mbytes"] = down_stats["bytes"]/kb_size/kb_size
+                down_stats["kbytes"] = down_stats["bytes"] / KB_FACTOR
+                down_stats["mbytes"] = down_stats["bytes"] / MB_FACTOR
                 down_stats["delta_sec"] = time.perf_counter() - down_stats["start"]
                 if down_stats["delta_sec"] > 0:
                     download_speed_average = down_stats["kbytes"] // down_stats["delta_sec"]
@@ -1033,13 +1134,10 @@ class XTream:
 
     # GET Stream Categories
     def _load_categories_from_provider(self, stream_type: str):
-        """Get from provider all category for specific stream type from provider
+        """Fetch all categories for a specific stream type from the provider.
 
         Args:
-            stream_type (str): Stream type can be Live, VOD, Series
-
-        Returns:
-            [type]: JSON if successful, otherwise None
+            stream_type (str): Either 'Live', 'VOD', or 'Series'.
         """
         url = ""
         if stream_type == self.live_type:
@@ -1055,13 +1153,10 @@ class XTream:
 
     # GET Streams
     def _load_streams_from_provider(self, stream_type: str):
-        """Get from provider all streams for specific stream type
+        """Fetch all streams for a specific stream type from the provider.
 
         Args:
-            stream_type (str): Stream type can be Live, VOD, Series
-
-        Returns:
-            [type]: JSON if successful, otherwise None
+            stream_type (str): Either 'Live', 'VOD', or 'Series'.
         """
         url = ""
         if stream_type == self.live_type:
@@ -1077,14 +1172,11 @@ class XTream:
 
     # GET Streams by Category
     def _load_streams_by_category_from_provider(self, stream_type: str, category_id):
-        """Get from provider all streams for specific stream type with category/group ID
+        """Fetch streams within a specific category from the provider.
 
         Args:
-            stream_type (str): Stream type can be Live, VOD, Series
-            category_id ([type]): Category/Group ID.
-
-        Returns:
-            [type]: JSON if successful, otherwise None
+            stream_type (str): Either 'Live', 'VOD', or 'Series'.
+            category_id (int|str): The unique ID of the category.
         """
         url = ""
 
@@ -1101,14 +1193,11 @@ class XTream:
 
     # GET SERIES Info
     def _load_series_info_by_id_from_provider(self, series_id: str, return_type: str = "DICT"):
-        """Gets information about a Serie
+        """Fetch detailed information about a series from the provider.
 
         Args:
-            series_id (str): Serie ID as described in Group
-            return_type (str, optional): Output format, 'DICT' or 'JSON'. Defaults to "DICT".
-
-        Returns:
-            [type]: JSON if successful, otherwise None
+            series_id (str): The unique series ID.
+            return_type (str, optional): The format, 'DICT' or 'JSON'. Defaults to "DICT".
         """
         data = self._get_request(api.get_series_info_URL_by_ID(series_id, self.base_url))
         if return_type == "JSON":
@@ -1123,21 +1212,43 @@ class XTream:
 
     # GET VOD Info
     def vodInfoByID(self, vod_id):
+        """Fetch VOD information by movie ID.
+
+        Args:
+            vod_id (int|str): The movie ID.
+        """
         return self._get_request(api.get_VOD_info_URL_by_ID(vod_id, self.base_url), self.base_url)
 
     # GET short_epg for LIVE Streams (same as stalker portal,
     # prints the next X EPG that will play soon)
     def liveEpgByStream(self, stream_id):
+        """Fetch current short EPG data for a live stream.
+
+        Args:
+            stream_id (int|str): The stream ID.
+        """
         return self._get_request(api.get_live_epg_URL_by_stream(stream_id, self.base_url))
 
     def liveEpgByStreamAndLimit(self, stream_id, limit):
+        """Fetch short EPG data for a live stream with a result limit.
+
+        Args:
+            stream_id (int|str): The stream ID.
+            limit (int): Maximum number of entries.
+        """
         return self._get_request(api.get_live_epg_URL_by_stream_and_limit(stream_id, limit, self.base_url))
 
     #  GET ALL EPG for LIVE Streams (same as stalker portal,
     # but it will print all epg listings regardless of the day)
     def allLiveEpgByStream(self, stream_id):
+        """Fetch all available EPG data for a live stream via simple_data_table.
+
+        Args:
+            stream_id (int|str): The stream ID.
+        """
         return self._get_request(api.get_all_live_epg_URL_by_stream(stream_id, self.base_url))
 
     # Full EPG List for all Streams
     def allEpg(self):
+        """Fetch the complete XMLTV EPG for all channels."""
         return self._get_request(api.get_all_epg_URL(self.base_url, self.username, self.password))

@@ -79,6 +79,16 @@ python3 functional_test.py
 
 The functional test will allow you to authenticate on startup, load and search streams. If Flask is installed, a simple website will be available at http://localhost:5000 to allow you to search and play streams.
 
+## 🧪 Testing
+
+To run unit tests and generate an interactive HTML coverage report:
+
+```shell
+python3 -m pytest --cov=pyxtream --cov-report=html test/test_pyxtream.py
+```
+
+The report will be generated in the `htmlcov/` directory. Open `htmlcov/index.html` in your web browser to view the detailed results.
+
 ## Applications using PyXtream
 
 Applications using PyXtream PYPI package

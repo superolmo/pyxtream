@@ -714,6 +714,24 @@ function buildMovieCard(item)
 }
 
 /**
+ * Check if the application is running in offline mode and update the UI
+ */
+async function updateOfflineStatus() {
+    try {
+        const response = await fetch(API_BASE_URL + "/get_state");
+        const state = await response.json();
+        if (state.offline) {
+            const brand = document.querySelector('.navbar-brand');
+            if (!brand.innerHTML.includes('OFFLINE MODE')) {
+                brand.innerHTML += ' <span class="badge bg-warning text-dark ms-2" style="font-size: 0.7rem;">OFFLINE MODE</span>';
+            }
+        }
+    } catch (e) {
+        console.error("Failed to check state", e);
+    }
+}
+
+/**
  * Send search string to server, get the result, and prepare output in search_result element
  * @param {integer} page number
  */
@@ -1004,6 +1022,8 @@ document.addEventListener('DOMContentLoaded', (event) => {
     if (savedCountry) {
         updateDropDownButtonLabel(savedCountry);
     }
+
+    updateOfflineStatus();
 
     // Trigger an initial search or load some default content
     // For now, let's just load the first batch if all_streams_data is empty

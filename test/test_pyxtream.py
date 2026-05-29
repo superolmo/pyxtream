@@ -3,13 +3,15 @@
 import json
 import os
 import sys
+import requests
 from datetime import datetime, timedelta
 from unittest.mock import Mock, mock_open, patch
 
 import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from pyxtream import Channel, Episode, Group, Season, Serie, XTream
+from pyxtream import Channel, Episode, Group, Season, Serie, XTream, constants
+from pyxtream.schemaValidator import SchemaType, schemaValidator
 
 # Mock data for provider connection
 mock_provider_name = "Test Provider"
@@ -88,6 +90,7 @@ def mock_xtream(tmp_path_factory):
 
 def test_authentication(mock_xtream):
     assert mock_xtream.state["authenticated"] is True
+    assert mock_xtream.state["offline"] is False
     assert mock_xtream.authorization["username"] == mock_provider_username
     assert mock_xtream.authorization["password"] == mock_provider_password
 
@@ -262,8 +265,79 @@ def test_download_video(mock_xtream):
     mock_xtream.movies = [movie]
 
     with patch.object(mock_xtream, '_download_video_impl', return_value=True):
-        path = mock_xtream.download_video("movie", 2)
+        # Updated to use the new single-argument signature
+        path = mock_xtream.download_video(2)
         assert "movie 1.mp4" in path
+
+
+def test_offline_fallback_authentication(tmp_path):
+    """Test that if connection fails, it falls back to offline mode if cache exists."""
+    cache_dir = tmp_path / "fallback_cache"
+    cache_dir.mkdir()
+    
+    provider_name = "FallbackProvider"
+    # Create a dummy cache file so _fallback_to_offline finds valid data
+    dummy_cache_file = cache_dir / "fallbackprovider-all_groups_Live.json"
+    dummy_cache_file.write_text(json.dumps([]))
+
+    # Mock connection failure and reduce max attempts to speed up the test
+    with patch('requests.get', side_effect=requests.exceptions.ConnectionError), \
+         patch('pyxtream.pyxtream.AUTH_MAX_ATTEMPTS', 1):
+        
+        xt = XTream(
+            provider_name=provider_name,
+            provider_username="offline_user",
+            provider_password="offline_password",
+            provider_url="http://offline.server",
+            cache_path=str(cache_dir)
+        )
+    
+    assert xt.state["authenticated"] is True
+    assert xt.state["offline"] is True
+    assert xt.authorization["username"] == "offline_user"
+    assert "player_api.php" in xt.base_url
+
+
+def test_authentication_total_failure(tmp_path):
+    """Test that if connection fails and NO cache exists, authentication is False."""
+    cache_dir = tmp_path / "empty_cache"
+    cache_dir.mkdir()
+
+    with patch('requests.get', side_effect=requests.exceptions.ConnectionError), \
+         patch('pyxtream.pyxtream.AUTH_MAX_ATTEMPTS', 1):
+        
+        xt = XTream(
+            provider_name="FailingProvider",
+            provider_username="user",
+            provider_password="pass",
+            provider_url="http://fail.server",
+            cache_path=str(cache_dir)
+        )
+    
+    assert xt.state["authenticated"] is False
+    assert xt.state["offline"] is False
+
+
+def test_offline_mode_ignores_age(tmp_path):
+    """Test that offline mode forces loading files even if they are technically 'stale'."""
+    cache_dir = tmp_path / "stale_cache"
+    cache_dir.mkdir()
+    
+    filename = "stale-all_groups_Live.json"
+    full_path = cache_dir / filename
+    dummy_data = [{"category_id": "1", "category_name": "Stale Group"}]
+    full_path.write_text(json.dumps(dummy_data))
+
+    # Create an offline instance
+    with patch('requests.get', side_effect=requests.exceptions.ConnectionError), \
+         patch('pyxtream.pyxtream.AUTH_MAX_ATTEMPTS', 1):
+        xt = XTream("stale", "u", "p", "http://s", cache_path=str(cache_dir), reload_time_sec=10)
+        xt.state["offline"] = True # Ensure offline is true
+
+    # Even if threshold is 10s and file is theoretically stale (default behavior), 
+    # it should load because state['offline'] is True.
+    loaded_data = xt._load_from_file("all_groups_Live.json")
+    assert loaded_data == dummy_data
 
 
 def test_download_video_impl_resume(mock_xtream):
@@ -307,10 +381,41 @@ def test_epg_and_info_helpers(mock_xtream):
         assert mock_xtream.allEpg() == {"data": "test"}
 
 
+def test_get_state(mock_xtream):
+    state = json.loads(mock_xtream.get_state())
+    assert "offline" in state
+    assert state["authenticated"] is True
+
+
 def test_get_last_7days(mock_xtream):
     mock_xtream.movies_7days = [Channel(mock_xtream, "VOD", MOCK_STREAMS[1])]
     res = json.loads(mock_xtream.get_last_7days())
     assert len(res) == 1
+
+
+def test_schema_validation():
+    """Ensure the schema validator correctly identifies valid and invalid data."""
+    # 1. Valid Group (Sanity Check)
+    valid_group = {"category_id": "1", "category_name": "Test Group", "parent_id": 0}
+    assert schemaValidator(valid_group, SchemaType.GROUP) is True
+
+    # 2. Invalid Series Info (Missing required field 'name')
+    # According to series_info_schema, 'name' and 'category_id' are required.
+    invalid_series = {"category_id": "10"} 
+    assert schemaValidator(invalid_series, SchemaType.SERIES_INFO) is False
+
+    # 3. Invalid Live Stream (Type mismatch)
+    # live_schema expects 'num' to be an integer, not a string
+    invalid_live = {
+        "num": "not_an_int", 
+        "name": "Invalid Channel",
+        "stream_type": "live",
+        "stream_id": 100
+    }
+    assert schemaValidator(invalid_live, SchemaType.LIVE) is False
+
+    # 4. Unknown Schema Type (Edge case)
+    assert schemaValidator({}, "NON_EXISTENT_TYPE") is False
 
 
 def test_multiple_instances_isolation(tmp_path):

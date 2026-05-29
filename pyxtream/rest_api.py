@@ -9,6 +9,7 @@ from threading import Thread
 
 from flask import Flask
 from flask import Response as FlaskResponse
+from pyxtream.constants import DEFAULT_FLASK_PORT
 
 
 class EndpointAction(object):
@@ -29,11 +30,12 @@ class EndpointAction(object):
             # Add handlers here
             "stream_search_generic": lambda: self._handle_search(args['term']),
             "stream_search_with_type": lambda: self._handle_search(args['term'], args.get('type')),
-            "download_stream": lambda: self.action(str(args['stream_type']), int(args['stream_id'])),
+            "download_stream": lambda: self.action(int(args['stream_id'])),
             "get_download_progress": lambda: self.action(int(args['stream_id'])),
             "get_last_7days": lambda: self.action(),
             "get_last_30days": lambda: self.action(),
             "home": lambda: self.action,
+            "get_state": lambda: self.action(),
             "get_series": lambda: self.action(int(args['series_id']), "JSON")
         }
 
@@ -61,7 +63,7 @@ class FlaskWrap(Thread):
     port: int = 0
 
     def __init__(self, name, xtream: object, html_template_folder: str = "",
-                 host: str = "0.0.0.0", port: int = 5000, debug: bool = True
+                 host: str = "0.0.0.0", port: int = DEFAULT_FLASK_PORT, debug: bool = True
                  ):
 
         log = logging.getLogger('werkzeug')
@@ -115,6 +117,10 @@ class FlaskWrap(Thread):
         self.add_endpoint(endpoint='/get_series/<series_id>',
                           endpoint_name='get_series',
                           handler=[self.xt._load_series_info_by_id_from_provider, "get_series"]
+                          )
+        self.add_endpoint(endpoint='/get_state',
+                          endpoint_name='get_state',
+                          handler=[self.xt.get_state, "get_state"]
                           )
 
     def run(self):
