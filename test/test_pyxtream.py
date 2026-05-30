@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import requests
+import time
 from datetime import datetime, timedelta
 from unittest.mock import Mock, mock_open, patch
 
@@ -391,6 +392,81 @@ def test_get_last_7days(mock_xtream):
     mock_xtream.movies_7days = [Channel(mock_xtream, "VOD", MOCK_STREAMS[1])]
     res = json.loads(mock_xtream.get_last_7days())
     assert len(res) == 1
+
+
+def test_get_download_progress_validation(mock_xtream: XTream) -> None:
+    """Verify that download progress returns zeroed data for mismatched stream IDs.
+
+    This test ensures that when a client polls for a specific stream_id that is not
+    currently being downloaded, the API returns a safe, zeroed-out state rather
+    than stale progress from a different stream.
+
+    Args:
+        mock_xtream (XTream): The mocked XTream client instance.
+    """
+    # Setup active progress for a specific stream
+    mock_xtream.download_progress = {'StreamId': 123, 'Total': 1000, 'Progress': 500}
+
+    # Requesting progress for a mismatched ID should return reset values
+    mismatched_res = json.loads(mock_xtream.get_download_progress(999))
+    assert mismatched_res['StreamId'] == 999
+    assert mismatched_res['Total'] == 0
+    assert mismatched_res['Progress'] == 0
+
+    # Requesting progress for the matching ID should return actual values
+    matching_res = json.loads(mock_xtream.get_download_progress(123))
+    assert matching_res['Progress'] == 500
+    assert matching_res['Total'] == 1000
+
+
+def test_search_stream_performance_large_dataset(mock_xtream: XTream) -> None:
+    """Benchmark search_stream performance with a dataset of 400,000 items.
+
+    This test populates the XTream instance with a massive number of mock channels
+    and movies to verify that the linear search remains within an acceptable
+    latency threshold.
+
+    Args:
+        mock_xtream (XTream): The mocked XTream client instance.
+    """
+    # Create lightweight mock data
+    base_info = {
+        "stream_id": 1, "stream_icon": "", "stream_type": "movie",
+        "category_id": "1", "added": "1638316800", "container_extension": "mp4"
+    }
+
+    # Efficiently populate 400k items
+    large_movies = []
+    for i in range(200000):
+        info = base_info.copy()
+        info["name"] = f"Movie Number {i}"
+        large_movies.append(Channel(mock_xtream, "VOD", info))
+
+    large_channels = []
+    for i in range(200000):
+        info = base_info.copy()
+        info["name"] = f"Live Channel {i}"
+        info["stream_type"] = "live"
+        large_channels.append(Channel(mock_xtream, "Live", info))
+
+    # Swap current collections with the large ones
+    original_movies = mock_xtream.movies
+    original_channels = mock_xtream.channels
+    mock_xtream.movies = large_movies
+    mock_xtream.channels = large_channels
+
+    try:
+        start_time = time.perf_counter()
+        results = mock_xtream.search_stream("Movie Number 199999", return_type="LIST")
+        duration = time.perf_counter() - start_time
+
+        assert len(results) == 1
+        # Threshold of 2.0 seconds is generous for 400k items in Python
+        assert duration < 2.0, f"Search took too long: {duration:.4f}s"
+    finally:
+        # Restore original state
+        mock_xtream.movies = original_movies
+        mock_xtream.channels = original_channels
 
 
 def test_schema_validation():

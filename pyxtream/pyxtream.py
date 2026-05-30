@@ -35,7 +35,6 @@ from pyxtream.constants import (
     REQUEST_BLOCK_SIZE,
     REQUEST_DEFAULT_TIMEOUT,
     REQUEST_MAX_ATTEMPTS,
-    SECONDS_IN_DAY,
     SECONDS_IN_YEAR,
 )
 
@@ -387,12 +386,13 @@ class XTream:
         Retrieves the state of the downloader, including total bytes and progress.
 
         Args:
-            stream_id (int, optional): The specific stream ID to check. Currently unused.
+            stream_id (int, optional): The specific stream ID to check.
 
         Returns:
             str: A JSON-formatted string containing 'StreamId', 'Total', and 'Progress'.
         """
-        # TODO: Add check for stream specific ID
+        if stream_id is not None and stream_id != self.download_progress.get('StreamId'):
+            return json.dumps({'StreamId': stream_id, 'Total': 0, 'Progress': 0})
         return json.dumps(self.download_progress)
 
     def get_last_7days(self):
@@ -508,7 +508,9 @@ class XTream:
         if url == "":
             return ""
 
-        for attempt in range(10):
+        self.download_progress.update({'StreamId': stream_id, 'Total': 0, 'Progress': 0})
+
+        for attempt in range(REQUEST_MAX_ATTEMPTS):
             if self._download_video_impl(url, filename):
                 return filename
 
@@ -529,6 +531,7 @@ class XTream:
         ret_code = False
         mb_size = MB_FACTOR
         headers = self.connection_headers.copy()
+        file_size = 0
         try:
             self.printx(f"Downloading from URL `{url}` and saving at `{fullpath_filename}`")
 
@@ -555,14 +558,13 @@ class XTream:
                 # Get content type Binary or Text
                 content_type = response.headers.get('content-type', None)
 
-                # Get total playlist byte size
-                total_content_size = int(response.headers.get('content-length', None))
-                total_content_size_mb = total_content_size/mb_size
+                # Calculate the full file size (existing + remaining)
+                remaining_bytes = int(response.headers.get('content-length', 0))
+                total_content_size = remaining_bytes + file_size
+                total_content_size_mb = total_content_size / mb_size
 
-                # Set downloaded size
-                downloaded_bytes = 0
                 self.download_progress['Total'] = total_content_size
-                self.download_progress['Progress'] = 0
+                self.download_progress['Progress'] = file_size
 
                 # Set stream blocks
                 block_bytes = int(DOWNLOAD_BLOCK_SIZE)
@@ -575,9 +577,8 @@ class XTream:
 
                         # Grab data by block_bytes
                         for data in response.iter_content(block_bytes, decode_unicode=False):
-                            downloaded_bytes += block_bytes
-                            self.download_progress['Progress'] = downloaded_bytes
                             file.write(data)
+                            self.download_progress['Progress'] += len(data)
 
                     ret_code = True
                 else:
@@ -656,7 +657,6 @@ class XTream:
         if self.state["authenticated"] is False:
             # Erase any previous data
             self.auth_data = {}
-            # Loop through 30 seconds
             i = 0
             r = None
             # Prepare the authentication url
@@ -971,7 +971,7 @@ class XTream:
                                 try:
                                     self.printx(f" - xEverythingElse Channel -> {new_channel.name} - {new_channel.stream_type}")
                                 except AttributeError as e:
-                                    print(f"{new_channel.raw} {e}")
+                                    self.printx(f"{new_channel.raw} {e}")
                             self.movies.append(new_channel)
                             if new_channel.age_days_from_added < MOVIES_RECENT_30_DAYS_THRESHOLD:
                                 self.movies_30days.append(new_channel)
