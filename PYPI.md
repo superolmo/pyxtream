@@ -30,9 +30,6 @@ poetry build
 ```shell
 poetry config pypi-token.pypi <token>
 ```
-```shell
-poetry publish -u __token__ -p <token>
-```
 
 # Upload to PYPI
 

@@ -292,11 +292,13 @@ def schemaValidator(jsonData: Any, schemaType: SchemaType) -> bool:
     elif (schemaType == SchemaType.GROUP):
         json_schema = group_schema
     else:
-        json_schema = "{}"
+        return False
 
     try:
         validate(instance=jsonData, schema=json_schema)
     except exceptions.ValidationError as err:
         print(err)
+        return False
+    except exceptions.SchemaError:
         return False
     return True

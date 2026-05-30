@@ -1,21 +1,40 @@
-# PyXtream - A Python Xtream Loader
+# 📺 PyXtream
 
-PyXtream loads the xtream IPTV content from a provider server. Groups, Channels, Series are all organized in dictionaries. Season and Episodes are retrieved as needed. It includes functions for searching streams and downloading.
+[![PyPI version](https://img.shields.io/pypi/v/pyxtream.svg)](https://pypi.org/project/pyxtream/)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 
-This library was originally designed to work with Hypnotix at https://github.com/linuxmint/hypnotix, so its compatibility with Hypnotix takes precedence.
+**PyXtream** is a high-performance, asynchronous-friendly Python library designed to interface with Xtream Codes IPTV panels. It handles authentication, data ingestion, caching, and stream management with a focus on precision and reliability.
 
-# Installing
+Originally engineered to power [Hypnotix](https://github.com/linuxmint/hypnotix), PyXtream is optimized for applications requiring structured access to Live TV, VOD, and Series content.
 
-Installing pyxtream is done using pip3.
+---
+
+## ✨ Key Features
+
+-   **🚀 Industrial Grade Ingestion**: Efficiently loads thousands of channels and groups into structured Python objects.
+-   **🔒 Full Instance Isolation**: Built for multi-provider environments. Every instance maintains its own groups, channels, and state without global side effects.
+-   **📁 Smart Caching**: Integrated file-based caching with configurable TTL (Time-to-Live) to reduce provider server load and startup times.
+-   **🛡️ Schema Validation**: Uses `jsonschema` to validate provider responses, ensuring data integrity against non-standard API implementations.
+-   **🔍 Advanced Search**: Regex-powered searching across Live, VOD, and Series collections.
+-   **📥 Stream Downloader**: Robust video downloading with built-in **resume support** (HTTP Range headers).
+-   **🌐 REST API & Web UI**: Optional Flask-based microservice and a modern Bootstrap 5 viewer included.
+-   **📅 EPG Support**: Full access to XMLTV data and short-term EPG for live channels.
+
+---
+
+## 📦 Installation
+
+Install the core library:
 
 ```shell
-pip3 install pyxtream
+pip install pyxtream
 ```
 
 Optionally, to use the REST Api service, install also Flask via the following command or manually.
 
 ```shell
-pip3 install pyxtream[REST_API]
+pip install pyxtream[REST_API]
 ```
 
 
@@ -28,7 +47,7 @@ Integrating in your application is simple. Initialization and loading of IPTV ch
 ```python
 from pyxtream import XTream
 xt = XTream(servername, username, password, url)
-if xt.authData != {}:
+if xt.auth_data != {}:
     xt.load_iptv()
 else:
     print("Could not connect")
@@ -44,13 +63,31 @@ At this point, the `series_obj` will have both Seasons and Episodes populated.
 
 ## Functional Test
 
-Please modify the `functional_test.py` file with your provider information, then start the application.
+To run the functional test, you can create a `.env` file in the project root with your provider credentials:
+
+```env
+PROVIDER_NAME="My Provider"
+PROVIDER_URL="http://example.com:8080"
+PROVIDER_USERNAME="your_username"
+PROVIDER_PASSWORD="your_password"
+```
+Alternatively, you can modify the variables directly in `functional_test.py`. Start the application with:
 
 ```shell
 python3 functional_test.py
 ```
 
 The functional test will allow you to authenticate on startup, load and search streams. If Flask is installed, a simple website will be available at http://localhost:5000 to allow you to search and play streams.
+
+## 🧪 Testing
+
+To run unit tests and generate an interactive HTML coverage report:
+
+```shell
+python3 -m pytest --cov=pyxtream --cov-report=html test/test_pyxtream.py
+```
+
+The report will be generated in the `htmlcov/` directory. Open `htmlcov/index.html` in your web browser to view the detailed results.
 
 ## Applications using PyXtream
 
@@ -103,24 +140,7 @@ Follows the Semantic Versioning from https://semver.org/
 - Increment the MINOR version when you add functionality in a backwards-compatible manner.
 - Increment the PATCH version when you make backwards-compatible bug fixes.
 
-# Change Log
-
-| Date | Version | Description |
-| ----------- | -----| ----------- |
-| 2026-04-03 | 0.8.0 | - Added more PyTest functions<br>- Refactored index.html to better show cards<br>- Refactored pyxtream.py with types<br> - Removed cli progress bar<br>- Fixed issue with loading series [max298](https://github.com/max298)<br> - Fixed empty logo issue [max298](https://github.com/max298)
-| 2025-02-17 | 0.7.3 | - Added Initial PyTest and Coverage<br>- Added timestamp field "added" to Series to match channels "added" field<br>- Added string field "url" to Series to quickly get the series download address<br>- Added new API "get_last_7days()" returns the last added streams in the last 7 days in JSON format<br>- Added new API "get_download_progress()" returns information on the current download stream in JSON format<br>- Changed internal function _load_series_info_by_id_from_provider to allow returned value to change to JSON<br>- Changed search_stream function to only search in specific collections<br>- Refactored "rest_api.py" to make it easier to extend in the future<br>- Added new rest API<br>- Changed to Poetry environment<br>- Changed Functional Test to test loading series information<br>- Changed sample index.html to test more features|
-| 2024-09-02 | 0.7.2 | - Added missing request package to setup.py<br>- Refactored the search stream function and now, it can search for a specific stream type<br>- Refactored the download stream function<br>- Refactored the _get_request function and removed the call to the sleep function<br>- Added functional test to get series json output from a series_id<br>- Added functional test to get EPG for a specific stream ID<br>- Added xtream account expiration date printed on the console during authentication<br>- Improved results with the Flask HTML page and differentiating between movies and series<br>- Improved code readability|
-| 2024-05-21 | 0.7.1 | - Fixed missing jsonschema package<br>- Fixed provider name in functional_test<br>- Improved print out of connection attempts<br>- Added method to read latest changes in functional_test
-| 2023-11-08 | 0.7.0 | - Added Schema Validator<br>- Added Channel Age<br>- Added list of movies added in the last 30 and 7 days<br>- Updated code based on PyLint<br>- Fixed Flask package to be optional [richard-de-vos](https://github.com/richard-de-vos)|
-| 2023-02-06 | 0.6.0 | - Added methods to change connection header, to turn off reload timer, and to enable/disable Flask debug mode<br>- Added a loop when attempting to connect to the provider <br>- Cleaned up some print lines|
-| 2021-08-19 | 0.5.0 | - Added method to gracefully handle connection errors<br>- Added setting to not load adult content<br>- Added sorting by stream name<br>- Changed the handling of special characters in streams<br>- Changed print formatting<br>- Changed index.html webpage to HTML5 and Bootstrap 5|
-| 2021-06-19 | 0.4.0 | - Updated to follow PEP8<br>- Updated Docstrings |
-| 2021-06-19 | 0.3.0 | - Added enhanced Home Page with Search Button and Player<br>- Added case insensitive search<br>- Improved handling of provider missing fields |
-| 2021-06-11 | 0.2.1 | - Fixed bug in the way it reload from cache |
-| 2021-06-08 | 0.2.0 | - Added searching<br>- Added video download<br>- Added REST Api<br>- Fixed cache-path issue |
-| 2021-06-05 | 0.1.2 | - Fixed Server Name |
-| 2021-06-04 | 0.1.1 | - Updated README.md |
-| 2021-06-04 | 0.1.0 | - Initial Release |
+Detailed history of changes can be found in the [CHANGELOG.md](CHANGELOG.md) file.
 
 ## Interesting content that could be used for future development
 
